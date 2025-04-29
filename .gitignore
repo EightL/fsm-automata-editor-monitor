@@ -1,0 +1,17 @@
+# Ignore build artifacts
+/build/
+/build-*/
+/CMakeFiles/
+/Makefile2
+/CMakeCache.txt
+/compile_commands.json
+
+# Ignore editor/IDE files
+*.user
+*.suo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+project_utils/

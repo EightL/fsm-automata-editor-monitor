@@ -1,0 +1,10 @@
+// .vscode/c_cpp_properties.json
+{
+    "version": 4,
+    "configurations": [
+      {
+        "name": "CMake",
+        "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+      }
+    ]
+  }
