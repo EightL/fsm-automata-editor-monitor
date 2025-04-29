@@ -1,8 +1,13 @@
-all:
-	cmake -B build && $(MAKE) -C build
-    
-run:
-	./build/src/fsm_gui
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Icore_fsm
+
+SRCS = core_fsm/Automaton.cpp
+OBJS = $(SRCS:.cpp=.o)
+
+all: main
+
+main: $(OBJS) examples/main.cpp
+	$(CXX) $(CXXFLAGS) -o fsm_demo $(OBJS) examples/main.cpp
 
 clean:
-	rm -rf build
+	rm -f $(OBJS) fsm_demo

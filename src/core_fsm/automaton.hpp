@@ -1,0 +1,109 @@
+// automaton.hpp
+#pragma once
+
+#include <vector>
+#include <string>
+#include <unordered_map>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
+
+#include "variable.hpp"
+#include "transition.hpp"
+#include "state.hpp"
+
+namespace core_fsm {
+
+/**
+ * @brief Drives a Moore-style timed finite-state machine.
+ */
+class Automaton {
+public:
+    using Clock     = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
+    using Duration  = std::chrono::milliseconds;
+
+    /** @brief A record of a state entry (for logging/monitoring). */
+    struct EventLog {
+        TimePoint   timestamp;
+        std::string state;
+        std::string triggerInput;  // empty for timeouts
+        std::string triggerValue;
+    };
+
+    Automaton() = default;
+    ~Automaton() = default;
+
+    Automaton(const Automaton&) = delete;
+    Automaton& operator=(const Automaton&) = delete;
+
+    /// Build the model ------------------------------------------------------
+
+    /** @brief Add an internal variable (by name). */
+    void addVariable(const Variable& var);
+
+    /** @brief Add a state; if initial==true or first state, it becomes the start. */
+    void addState(const State& s, bool initial = false);
+
+    /** @brief Add a transition. */
+    void addTransition(const Transition& t);
+
+    /// Runtime API ----------------------------------------------------------
+
+    /** @brief Called by external code/threads to inject an input event. */
+    void injectInput(const std::string& name,
+                     const std::string& value);
+
+    /** @brief Ask the `run()` loop to exit at the next opportunity. */
+    void requestStop() noexcept;
+
+    /** @brief Blocking interpreter loop; returns when `requestStop()` is called. */
+    void run();
+
+    /// Inspection -----------------------------------------------------------
+
+    /** @return The name of the current active state. */
+    const std::string& currentState() const noexcept;
+
+    /** @return All state‐entry events recorded so far. */
+    const std::vector<EventLog>& log() const noexcept;
+
+private:
+    // For scheduling delayed transitions:
+    struct Pending {
+        TimePoint   due;
+        std::size_t transitionIndex;
+        bool operator>(Pending const& o) const { return due > o.due; }
+    };
+
+    std::vector<State>           m_states;
+    std::vector<Transition>      m_transitions;
+    std::size_t                  m_active{0};
+
+    // Last‐known values
+    std::unordered_map<std::string, Variable>    m_vars;
+    std::unordered_map<std::string, std::string> m_inputs;
+
+    // Timers for delayed transitions
+    std::priority_queue<
+        Pending,
+        std::vector<Pending>,
+        std::greater<Pending>
+    >                                             m_timers;
+
+    // Input injection & stop signalling
+    std::mutex                                    m_mtx;
+    std::condition_variable                       m_cv;
+    std::queue<std::pair<std::string,std::string>> m_incoming;
+    bool                                          m_stop{false};
+
+    // History of entries
+    std::vector<EventLog>                         m_log;
+
+    std::unordered_map<std::string,std::string> m_outputs;        // last‐known outputs
+    std::chrono::steady_clock::time_point        m_stateSince;    // when we last entered m_active
+  
+};
+
+} // namespace core_fsm

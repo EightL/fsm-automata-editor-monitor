@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
-project(fsm_toolkit VERSION 0.1 LANGUAGES CXX)
+project(fsm_demo LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# only descend into src/ (and later tests/, examples/, etc.)
-add_subdirectory(src)
+# this will descend into src/core_fsm/CMakeLists.txt
+add_subdirectory(src/core_fsm)
