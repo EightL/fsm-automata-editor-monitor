@@ -1,30 +1,48 @@
-// context.hpp  – small bag of references handed to guards/actions
+// context.hpp  (new or amended)
 #pragma once
 #include <unordered_map>
-#include "variable.hpp"
+#include <string>
+#include <variant>
+#include <chrono>
+#include "variable.hpp"  // Include this to use the Value definition from variable.hpp
 
 namespace core_fsm {
 
+
+using VarMap = std::unordered_map<std::string, Value>;
+using IOMap  = std::unordered_map<std::string, std::string>;
+using Clock  = std::chrono::steady_clock;
+
 struct Context {
-    std::unordered_map<std::string, Variable>& vars;
-    std::unordered_map<std::string, std::string>& inputs;   // last known
-    std::unordered_map<std::string, std::string>& outputs;  // last sent
-    std::chrono::steady_clock::time_point stateSince;       // set by Automaton
+    VarMap&  vars;
+    IOMap&   inputs;      // last known
+    IOMap&   outputs;
+    Clock::time_point stateSince;
 
-    template<class T>
-    void setVar(const std::string& n, T v) {
-        vars.at(n).set(v);
+    // --- helper API expected by the inscription language --------
+    template<class T> T getVar(std::string const& n) const;
+    bool   defined(std::string const& in) const noexcept {
+        return inputs.find(in) != inputs.end();
     }
-    const std::string& input(const std::string& n) const { return inputs.at(n); }
-    const std::string& output(const std::string& n) const { return outputs.at(n); }
-
+    std::string valueof(std::string const& in) const {
+        auto it = inputs.find(in);
+        return it == inputs.end() ? "" : it->second;
+    }
+    void output(std::string const& out, std::string const& val) {
+        outputs[out] = val;
+    }
     std::chrono::milliseconds elapsed() const {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::steady_clock::now() - stateSince);
-    }
-    void emit(const std::string& name, const std::string& val) {
-        outputs[name] = val;
+                   Clock::now() - stateSince);
     }
 };
 
-} // namespace core_fsm
+// ---------- template impl -------------
+template<class T>
+T Context::getVar(std::string const& n) const {
+    auto it = vars.find(n);
+    if (it == vars.end()) throw std::runtime_error("var not found");
+    return std::get<T>(it->second);
+}
+
+}  // namespace core_fsm

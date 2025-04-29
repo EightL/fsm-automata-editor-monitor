@@ -1,10 +1,15 @@
 add_library(core_fsm
-  Variable.cpp
-  Transition.cpp
-  State.cpp
-  Automaton.cpp
+  variable.cpp
+  transition.cpp
+  state.cpp
+  automaton.cpp
+  persistence_bridge.cpp
 )
-target_include_directories(core_fsm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(core_fsm 
+  PUBLIC 
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/external 
+)
 
 add_executable(fsm_demo
   main.cpp

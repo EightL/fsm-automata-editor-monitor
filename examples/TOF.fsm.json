@@ -1,0 +1,40 @@
+{
+    "name":    "TOF",
+    "comment": "Timer to off, umí nastavit timeout a na požádání sdělit zbývající čas timeru.",
+    "inputs":  ["in", "set_to", "req_rt"],
+    "outputs": ["out", "rt"],
+    "variables": [
+      { "name":"timeout",
+        "type":"int",
+        "init":5000
+      }
+    ],
+    "states": [
+      {
+        "id":"IDLE",
+        "initial":true,
+        "onEnter":"if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"out\", 0); output(\"rt\", 0);"
+      },
+      {
+        "id":"ACTIVE",
+        "onEnter":"if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"out\", 1); output(\"rt\", timeout);"
+      },
+      {
+        "id":"TIMING",
+        "onEnter":"if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"rt\", timeout - elapsed());"
+      }
+    ],
+    "transitions": [
+      { "from":"IDLE",   "to":"ACTIVE",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==1" },
+      { "from":"ACTIVE", "to":"TIMING",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==0" },
+      { "from":"TIMING", "to":"ACTIVE",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==1" },
+      { "from":"TIMING", "to":"IDLE",    "delay_ms":"timeout"                         },
+      { "from":"IDLE",   "to":"IDLE",    "trigger":"set_to"                           },
+      { "from":"ACTIVE", "to":"ACTIVE",  "trigger":"set_to"                           },
+      { "from":"TIMING", "to":"TIMING",  "trigger":"set_to"                           },
+      { "from":"IDLE",   "to":"IDLE",    "trigger":"req_rt"                          },
+      { "from":"ACTIVE", "to":"ACTIVE",  "trigger":"req_rt"                          },
+      { "from":"TIMING", "to":"TIMING",  "trigger":"req_rt"                          }
+    ]
+  }
+  

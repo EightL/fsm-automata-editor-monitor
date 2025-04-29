@@ -29,19 +29,24 @@ int main() {
     // 2) States
     //
     // On entry, print a JSON‐style message with the new state and the 'out' output.
-    fsm.addState(State{"IDLE",
-        [](Context& ctx){  
-            std::cout << R"({"type":"state","state":"IDLE","output":{"out":0}})" "\n";
+    fsm.addState(State{
+        "IDLE",
+        [](Context& ctx){
+            ctx.output("out","0");
+            std::cout << R"({"type":"state","state":"IDLE"})" "\n";
         }
     }, /* initial = */ true);
 
-    fsm.addState(State{"ACTIVE",
+    fsm.addState(State{
+        "ACTIVE", 
         [](Context& ctx){
-            std::cout << R"({"type":"state","state":"ACTIVE","output":{"out":1}})" "\n";
+            ctx.output("out","1");
+            std::cout << R"({"type":"state","state":"ACTIVE"})" "\n";
         }
     });
 
-    fsm.addState(State{"TIMING",
+    fsm.addState(State{
+        "TIMING",
         [](Context& ctx){
             // No immediate output on entering TIMING
         }

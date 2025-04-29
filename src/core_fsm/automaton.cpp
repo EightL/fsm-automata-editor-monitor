@@ -76,7 +76,9 @@ void Automaton::run() {
                     m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
                     
                     m_stateSince = Clock::now();
-                    Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };  // keep this as ctx
+                    // Create a snapshot of variable values
+                    auto varSnap = makeVarSnapshot(m_vars);
+                    Context ctx{ varSnap, m_inputs, m_outputs, m_stateSince };
                     m_states[m_active].onEnter(ctx);
                     
                     didImmediate = true;
@@ -153,7 +155,9 @@ void Automaton::run() {
                     m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
                     
                     m_stateSince = Clock::now();
-                    Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };  // keep this as ctx
+                    // Create a snapshot of variable values
+                    auto varSnap = makeVarSnapshot(m_vars);
+                    Context ctx{ varSnap, m_inputs, m_outputs, m_stateSince };
                     m_states[m_active].onEnter(ctx);
                     
                     didTransition = true;
@@ -185,7 +189,9 @@ void Automaton::run() {
                 m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
                 
                 m_stateSince = Clock::now();
-                Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };  // keep this as ctx
+                // Create a snapshot of variable values
+                auto contextVarSnap = makeVarSnapshot(m_vars);  // Renamed to avoid redefinition
+                Context ctx{ contextVarSnap, m_inputs, m_outputs, m_stateSince };
                 m_states[m_active].onEnter(ctx);
                 
             }
