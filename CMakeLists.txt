@@ -7,3 +7,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # this will descend into src/core_fsm/CMakeLists.txt
 add_subdirectory(src/core_fsm)
+add_subdirectory(src/tools/fsm_codegen)

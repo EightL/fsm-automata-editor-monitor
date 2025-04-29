@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Icore_fsm
 
-SRCS = core_fsm/Automaton.cpp
+SRCS = core_fsm/automaton.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: main
