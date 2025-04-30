@@ -12,6 +12,7 @@
 #include "variable.hpp"
 #include "transition.hpp"
 #include "state.hpp"
+#include "io_bridge/channel.hpp" 
 
 namespace core_fsm {
 
@@ -23,6 +24,9 @@ public:
     using Clock     = std::chrono::steady_clock;
     using TimePoint = Clock::time_point;
     using Duration  = std::chrono::milliseconds;
+
+    using SnapshotFn = std::function<void()>;
+    void   setSnapshotHook(SnapshotFn cb) { m_snapshotHook = std::move(cb); }
 
     /** @brief A record of a state entry (for logging/monitoring). */
     struct EventLog {
@@ -69,7 +73,30 @@ public:
     /** @return All state‐entry events recorded so far. */
     const std::vector<EventLog>& log() const noexcept;
 
+    // Attach a transport channel for live I/O
+    void attachChannel(io_bridge::ChannelPtr ch) {
+        m_channel = std::move(ch);
+    }
+
+    public:
+    /// Current registered inputs (name → last‐seen value)
+    const std::unordered_map<std::string, std::string>& inputs() const noexcept {
+        return m_inputs;
+    }
+
+    /// Current variables (name → Variable)
+    const std::unordered_map<std::string, Variable>& vars() const noexcept {
+        return m_vars;
+    }
+
+    /// Current outputs (name → last‐emitted value)
+    const std::unordered_map<std::string, std::string>& outputs() const noexcept {
+        return m_outputs;
+    }
+    
 private:
+    SnapshotFn m_snapshotHook;
+
     // For scheduling delayed transitions:
     struct Pending {
         TimePoint   due;
@@ -104,6 +131,8 @@ private:
     std::unordered_map<std::string,std::string> m_outputs;        // last‐known outputs
     std::chrono::steady_clock::time_point        m_stateSince;    // when we last entered m_active
   
+    io_bridge::ChannelPtr   m_channel;
+    uint64_t                m_seq{0};
 };
 
 } // namespace core_fsm

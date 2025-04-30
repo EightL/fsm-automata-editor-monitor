@@ -1,5 +1,6 @@
 // automaton.cpp
 #include "automaton.hpp"
+#include "../../external/nlohmann/json.hpp"
 
 using namespace core_fsm;
 
@@ -14,6 +15,10 @@ namespace {
         }
         return snap;
     }
+}
+
+static nlohmann::json jsonFromValue(const core_fsm::Value &v) {
+    return std::visit([](auto&& x) -> nlohmann::json { return x; }, v);
 }
 
 void Automaton::addVariable(const Variable& var) {
@@ -74,7 +79,30 @@ void Automaton::run() {
                 {
                     m_active = t.dst();
                     m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
-                    
+                    if (m_snapshotHook) m_snapshotHook();
+                    // ─── BROADCAST to attached channel ────────────────────────────────────────────
+                    if (m_channel) {
+                        nlohmann::json j = {
+                        {"type",    "state"},
+                        {"seq",     ++m_seq},
+                        {"ts",      std::chrono::duration_cast<
+                                        std::chrono::milliseconds>(
+                                        Clock::now().time_since_epoch()
+                                    ).count()},
+                        {"state",   m_states[m_active].name()},
+                        {"inputs",  m_inputs},
+                        {"vars",    [&]{
+                            nlohmann::json snapshot;
+                            for (auto &kv : m_vars)
+                                snapshot[kv.first] = jsonFromValue(kv.second.value());
+                            return snapshot;
+                        }()},
+                        {"outputs", m_outputs}
+                        };
+                        m_channel->send({ j.dump() });
+                    }
+                    // ──────────────────────────────────────────────────────────────────────────────
+
                     m_stateSince = Clock::now();
                     // Create a snapshot of variable values
                     auto varSnap = makeVarSnapshot(m_vars);
@@ -112,6 +140,22 @@ void Automaton::run() {
                 m_timers.pop();
             else
                 break;
+        }
+
+        if (m_channel) {
+            io_bridge::Packet p;
+            while (m_channel->poll(p)) {
+                auto j = nlohmann::json::parse(p.json, nullptr, false);
+                if (!j.is_discarded() && j.value("type","") == "inject") {
+                    injectInput(
+                      j.at("name").get<std::string>(),
+                      j.at("value").get<std::string>()
+                    );
+                }
+                else if (!j.is_discarded() && j.value("type","") == "shutdown") {
+                    requestStop();
+                }
+            }
         }
 
         // 4) Block until either new input, timer or stop
@@ -153,7 +197,30 @@ void Automaton::run() {
                 if (!t.isDelayed()) {
                     m_active = t.dst();
                     m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
-                    
+                    if (m_snapshotHook) m_snapshotHook();
+                    // ─── BROADCAST to attached channel ────────────────────────────────────────────
+                    if (m_channel) {
+                        nlohmann::json j = {
+                        {"type",    "state"},
+                        {"seq",     ++m_seq},
+                        {"ts",      std::chrono::duration_cast<
+                                        std::chrono::milliseconds>(
+                                        Clock::now().time_since_epoch()
+                                    ).count()},
+                        {"state",   m_states[m_active].name()},
+                        {"inputs",  m_inputs},
+                        {"vars",    [&]{
+                            nlohmann::json snapshot;
+                            for (auto &kv : m_vars)
+                                snapshot[kv.first] = jsonFromValue(kv.second.value());
+                            return snapshot;
+                        }()},
+                        {"outputs", m_outputs}
+                        };
+                        m_channel->send({ j.dump() });
+                    }
+                    // ──────────────────────────────────────────────────────────────────────────────
+
                     m_stateSince = Clock::now();
                     // Create a snapshot of variable values
                     auto varSnap = makeVarSnapshot(m_vars);
@@ -187,7 +254,30 @@ void Automaton::run() {
 
                 m_active = t.dst();
                 m_log.push_back({ Clock::now(), m_states[m_active].name(), "", "" });
-                
+                if (m_snapshotHook) m_snapshotHook();
+                // ─── BROADCAST to attached channel ────────────────────────────────────────────
+                if (m_channel) {
+                    nlohmann::json j = {
+                    {"type",    "state"},
+                    {"seq",     ++m_seq},
+                    {"ts",      std::chrono::duration_cast<
+                                    std::chrono::milliseconds>(
+                                    Clock::now().time_since_epoch()
+                                ).count()},
+                    {"state",   m_states[m_active].name()},
+                    {"inputs",  m_inputs},
+                    {"vars",    [&]{
+                        nlohmann::json snapshot;
+                        for (auto &kv : m_vars)
+                            snapshot[kv.first] = jsonFromValue(kv.second.value());
+                        return snapshot;
+                    }()},
+                    {"outputs", m_outputs}
+                    };
+                    m_channel->send({ j.dump() });
+                }
+                // ──────────────────────────────────────────────────────────────────────────────
+
                 m_stateSince = Clock::now();
                 // Create a snapshot of variable values
                 auto contextVarSnap = makeVarSnapshot(m_vars);  // Renamed to avoid redefinition

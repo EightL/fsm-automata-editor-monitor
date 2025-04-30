@@ -27,7 +27,7 @@
     "transitions": [
       { "from":"IDLE",   "to":"ACTIVE",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==1" },
       { "from":"ACTIVE", "to":"TIMING",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==0" },
-      { "from":"TIMING", "to":"ACTIVE",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==1" },
+      { "from":"TIarMING", "to":"ACTIVE",  "trigger":"in",     "guard":"atoi(valueof(\"in\"))==1" },
       { "from":"TIMING", "to":"IDLE",    "delay_ms":"timeout"                         },
       { "from":"IDLE",   "to":"IDLE",    "trigger":"set_to"                           },
       { "from":"ACTIVE", "to":"ACTIVE",  "trigger":"set_to"                           },
