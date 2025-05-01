@@ -8,6 +8,8 @@
 #include <QMap>
 #include <memory>
 #include "../io_bridge/channel.hpp"
+#include "../../../external/nlohmann/json.hpp" // for nlohmann::json
+#include "../io_bridge/udp_channel.hpp"   // ← add this line
 
 // A lightweight snapshot of one “state” message
 struct StateSnapshot {
@@ -32,6 +34,12 @@ public:
 
     /// Call once (from GUI thread) to kick off the polling thread/loop.
     void start();
+    
+    void shutdown() {
+        if (!m_channel) return;
+        nlohmann::json j = {{"type","shutdown"}};
+        m_channel->send({ j.dump() });
+    }
 
 public slots:
     /// Inject an input from the GUI into the FSM

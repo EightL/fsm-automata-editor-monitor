@@ -1,0 +1,442 @@
+#include "mainwindow.hpp"
+#include "ui_mainwindow.h"
+
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QTableWidgetItem>
+#include <QProcess>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QPlainTextEdit>
+#include <QComboBox>
+
+#include "runtime_client.hpp"
+
+MainWindow::MainWindow(QWidget* parent)
+  : QMainWindow(parent)
+  , ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+
+    // diagram scene stub
+    m_scene = std::make_unique<QGraphicsScene>(this);
+    ui->graphicsViewDiagram->setScene(m_scene.get());
+
+    // wire up core actions
+    connect(ui->actionConnect,    &QAction::triggered, this, &MainWindow::on_actionConnect_triggered);
+    connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::on_actionDisconnect_triggered);
+    connect(ui->buttonInject,     &QPushButton::clicked, this, &MainWindow::on_buttonInject_clicked);
+    connect(ui->actionGenerateCode, &QAction::triggered, this, &MainWindow::on_actionGenerateCode_triggered);
+    connect(ui->actionBuildRun,     &QAction::triggered, this, &MainWindow::on_actionBuildRun_triggered);
+
+    // wire up file menu
+    connect(ui->actionOpen,  &QAction::triggered, this, &MainWindow::on_actionOpen_triggered);
+    connect(ui->actionSave,  &QAction::triggered, this, &MainWindow::on_actionSave_triggered);
+    connect(ui->actionSaveAs,&QAction::triggered, this, &MainWindow::on_actionSaveAs_triggered);
+
+    // → wire selection changes in the tree to our new slot
+    connect(ui->projectTree,
+            &QTreeWidget::itemSelectionChanged,
+            this,
+            &MainWindow::on_projectTree_itemSelectionChanged);
+
+    ui->actionDisconnect->setEnabled(false);
+    
+    // Populate the project tree on startup
+    populateProjectTree();
+}
+
+MainWindow::~MainWindow() {
+    if (m_runtime) {
+        m_runtime.reset();
+    }
+    delete ui;
+}
+
+// ————— File → Open —————
+void MainWindow::on_actionOpen_triggered() {
+    QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Open FSM…"),
+        QString(),
+        tr("FSM JSON Files (*.json)")
+    );
+    if (path.isEmpty()) return;
+
+    core_fsm::persistence::FsmDocument doc;
+    std::string err;
+    if (!core_fsm::persistence::loadFile(path.toStdString(), doc, &err)) {
+        QMessageBox::critical(this,
+                              tr("Error Loading FSM"),
+                              tr("Failed to load “%1”:\n%2")
+                                .arg(path, QString::fromStdString(err)));
+        return;
+    }
+
+    m_doc = std::move(doc);
+    m_currentFsmPath = path;
+    populateProjectTree();
+}
+
+// ————— File → Save —————
+void MainWindow::on_actionSave_triggered() {
+    if (m_currentFsmPath.isEmpty()) {
+        return on_actionSaveAs_triggered();
+    }
+
+    std::string err;
+    if (!core_fsm::persistence::saveFile(m_doc,
+          m_currentFsmPath.toStdString(),
+          /*pretty*/true, &err))
+    {
+        QMessageBox::critical(this,
+                              tr("Error Saving FSM"),
+                              tr("Failed to save “%1”:\n%2")
+                                .arg(m_currentFsmPath, QString::fromStdString(err)));
+    }
+}
+
+// ————— File → Save As… —————
+void MainWindow::on_actionSaveAs_triggered() {
+    QString path = QFileDialog::getSaveFileName(
+        this,
+        tr("Save FSM As…"),
+        QString(),
+        tr("FSM JSON Files (*.json)")
+    );
+    if (path.isEmpty()) return;
+
+    m_currentFsmPath = path;
+    on_actionSave_triggered();
+}
+
+// ————— rebuild the left-hand tree —————
+void MainWindow::populateProjectTree() {
+    ui->projectTree->clear();
+
+    // Inputs
+    auto *inRoot = new QTreeWidgetItem({ tr("Inputs") });
+    for (auto const& in : m_doc.inputs) {
+        inRoot->addChild(new QTreeWidgetItem({ QString::fromStdString(in) }));
+    }
+    ui->projectTree->addTopLevelItem(inRoot);
+
+    // Outputs
+    auto *outRoot = new QTreeWidgetItem({ tr("Outputs") });
+    for (auto const& out : m_doc.outputs) {
+        outRoot->addChild(new QTreeWidgetItem({ QString::fromStdString(out) }));
+    }
+    ui->projectTree->addTopLevelItem(outRoot);
+
+    // Variables
+    auto *varRoot = new QTreeWidgetItem({ tr("Variables") });
+    for (auto const& v : m_doc.variables) {
+        QString label = QString::fromStdString(v.name)
+                      + " = "
+                      + QString::fromStdString(v.init.dump());
+        varRoot->addChild(new QTreeWidgetItem({ label }));
+    }
+    ui->projectTree->addTopLevelItem(varRoot);
+
+    // States
+    auto *stRoot = new QTreeWidgetItem({ tr("States") });
+    for (auto const& s : m_doc.states) {
+        QString label = QString::fromStdString(s.id)
+                      + (s.initial ? tr(" (initial)") : QString());
+        stRoot->addChild(new QTreeWidgetItem({ label }));
+    }
+    ui->projectTree->addTopLevelItem(stRoot);
+
+    // Transitions
+    auto *trRoot = new QTreeWidgetItem({ tr("Transitions") });
+    for (auto const& t : m_doc.transitions) {
+        QString label = QString::fromStdString(t.from)
+                      + " → "
+                      + QString::fromStdString(t.to)
+                      + "  [" + QString::fromStdString(t.guard) + "]";
+        if (!t.delay_ms.is_null()) {
+            if (t.delay_ms.is_number_integer()) {
+                // true numeric delay
+                label += tr(" @ %1ms")
+                         .arg(QString::number(t.delay_ms.get<int>()));
+            }
+            else {
+                // fallback: show whatever JSON the user gave (string, array, etc.)
+                label += " @ " + QString::fromStdString(t.delay_ms.dump());
+            }
+        }
+        trRoot->addChild(new QTreeWidgetItem({ label }));
+    }
+    ui->projectTree->addTopLevelItem(trRoot);
+
+    ui->projectTree->expandAll();
+}
+
+// … the rest of your slots (connect/inject/generate/build/run) unchanged …
+
+void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
+    updateMonitor(snap);
+}
+
+void MainWindow::updateMonitor(const StateSnapshot& snap) {
+    ui->labelCurrentState->setText(
+        tr("Current State: %1").arg(snap.state)
+    );
+    ui->tableLastValues->clearContents();
+
+    int rows = snap.inputs.size() + snap.vars.size() + snap.outputs.size();
+    ui->tableLastValues->setRowCount(rows);
+    int row = 0;
+    auto fill = [&](auto const& map){
+        for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+            ui->tableLastValues->setItem(row, 0,
+                new QTableWidgetItem(it.key()));
+            ui->tableLastValues->setItem(row, 1,
+                new QTableWidgetItem(it.value()));
+            ++row;
+        }
+    };
+    fill(snap.inputs);
+    fill(snap.vars);
+    fill(snap.outputs);
+}
+
+void MainWindow::clearPropertyEditor() {
+    // remove every row from the QFormLayout
+    while (ui->formProperties->rowCount() > 0) {
+        ui->formProperties->removeRow(0);
+    }
+}
+
+void MainWindow::on_projectTree_itemSelectionChanged() {
+    clearPropertyEditor();
+
+    auto items = ui->projectTree->selectedItems();
+    if (items.isEmpty()) return;
+
+    auto *it = items.first();
+    auto *parent = it->parent();
+    if (!parent) return;  // top-level ("Inputs", "States", …), nothing to edit
+
+    const QString category = parent->text(0);
+    const int index = parent->indexOfChild(it);
+
+    // — Inputs / Outputs: just a single name field
+    if (category == tr("Inputs") || category == tr("Outputs")) {
+        auto *edit = new QLineEdit(it->text(0));
+        ui->formProperties->addRow(tr("Name:"), edit);
+
+        connect(edit, &QLineEdit::editingFinished, this, [this, index, it, edit, category]() {
+            const QString newName = edit->text().trimmed();
+            if (newName.isEmpty()) return;
+            it->setText(0, newName);
+            if (category == tr("Inputs"))
+                m_doc.inputs[index] = newName.toStdString();
+            else
+                m_doc.outputs[index] = newName.toStdString();
+        });
+        return;
+    }
+
+    // — Variables: name + initial value
+    if (category == tr("Variables")) {
+        // name
+        auto *nameEdit = new QLineEdit(QString::fromStdString(m_doc.variables[index].name));
+        ui->formProperties->addRow(tr("Name:"), nameEdit);
+        connect(nameEdit, &QLineEdit::editingFinished, this, [this, index, it, nameEdit]() {
+            QString newName = nameEdit->text().trimmed();
+            if (newName.isEmpty()) return;
+            m_doc.variables[index].name = newName.toStdString();
+            it->setText(0, QString::fromStdString(m_doc.variables[index].name) 
+                          + " = " 
+                          + QString::fromStdString(m_doc.variables[index].init.dump()));
+        });
+
+        // init
+        auto *initEdit = new QLineEdit(QString::fromStdString(m_doc.variables[index].init.dump()));
+        ui->formProperties->addRow(tr("Initial:"), initEdit);
+        connect(initEdit, &QLineEdit::editingFinished, this, [this, index, it, initEdit]() {
+            m_doc.variables[index].init = nlohmann::json::parse(initEdit->text().toStdString(), nullptr, false);
+            it->setText(0, QString::fromStdString(m_doc.variables[index].name) 
+                          + " = " 
+                          + QString::fromStdString(m_doc.variables[index].init.dump()));
+        });
+        return;
+    }
+
+    // — States: id, is-initial, onEnter
+    if (category == tr("States")) {
+        // ID
+        auto *idEdit = new QLineEdit(QString::fromStdString(m_doc.states[index].id));
+        ui->formProperties->addRow(tr("ID:"), idEdit);
+        connect(idEdit, &QLineEdit::editingFinished, this, [this, index, it, idEdit]() {
+            QString newId = idEdit->text().trimmed();
+            if (newId.isEmpty()) return;
+            m_doc.states[index].id = newId.toStdString();
+            it->setText(0, QString::fromStdString(m_doc.states[index].id) 
+                        + (m_doc.states[index].initial ? tr(" (initial)") : QString()));
+        });
+
+        // Initial flag
+        auto *chk = new QCheckBox;
+        chk->setChecked(m_doc.states[index].initial);
+        ui->formProperties->addRow(tr("Initial:"), chk);
+        connect(chk, &QCheckBox::toggled, this, [this, index, it, chk](bool on) {
+            m_doc.states[index].initial = on;
+            it->setText(0, QString::fromStdString(m_doc.states[index].id) 
+                        + (on ? tr(" (initial)") : QString()));
+        });
+
+        // onEnter action
+        auto *actionEdit = new QPlainTextEdit(QString::fromStdString(m_doc.states[index].onEnter));
+        actionEdit->setPlaceholderText(tr("C/C++ snippet…"));
+        ui->formProperties->addRow(tr("On Enter:"), actionEdit);
+        connect(actionEdit, &QPlainTextEdit::textChanged, this, [this, index, actionEdit]() {
+            m_doc.states[index].onEnter = actionEdit->toPlainText().toStdString();
+        });
+        return;
+    }
+
+    // — Transitions: trigger, guard, delay, from, to
+    if (category == tr("Transitions")) {
+        auto &trn = m_doc.transitions[index];
+
+        // trigger (input event)
+        auto *trigEdit = new QLineEdit(QString::fromStdString(trn.trigger));
+        ui->formProperties->addRow(tr("Trigger:"), trigEdit);
+        connect(trigEdit, &QLineEdit::editingFinished, this, [this, index, trigEdit]() {
+            QString newTrigger = trigEdit->text().trimmed();
+            m_doc.transitions[index].trigger = newTrigger.toStdString();
+        });
+
+        // guard
+        auto *guardEdit = new QLineEdit(QString::fromStdString(trn.guard));
+        ui->formProperties->addRow(tr("Guard:"), guardEdit);
+        connect(guardEdit, &QLineEdit::editingFinished, this, [this, index, guardEdit]() {
+            m_doc.transitions[index].guard = guardEdit->text().toStdString();
+        });
+
+        // delay (as JSON)
+        auto *delayEdit = new QLineEdit(QString::fromStdString(trn.delay_ms.dump()));
+        ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
+        connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit]() {
+            m_doc.transitions[index].delay_ms = nlohmann::json::parse(delayEdit->text().toStdString(), nullptr, false);
+        });
+
+        // from/to comboboxes
+        QStringList states;
+        for (auto const& s : m_doc.states)
+            states << QString::fromStdString(s.id);
+
+        auto *fromBox = new QComboBox;
+        fromBox->addItems(states);
+        fromBox->setCurrentText(QString::fromStdString(trn.from));
+        ui->formProperties->addRow(tr("From:"), fromBox);
+        connect(fromBox, &QComboBox::currentTextChanged, this, [this, index](const QString &txt){
+            m_doc.transitions[index].from = txt.toStdString();
+        });
+
+        auto *toBox = new QComboBox;
+        toBox->addItems(states);
+        toBox->setCurrentText(QString::fromStdString(trn.to));
+        ui->formProperties->addRow(tr("To:"), toBox);
+        connect(toBox, &QComboBox::currentTextChanged, this, [this, index](const QString &txt){
+            m_doc.transitions[index].to = txt.toStdString();
+        });
+
+        return;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Core actions (wired up in your ctor but missing implementations)
+// -----------------------------------------------------------------------------
+
+void MainWindow::on_actionConnect_triggered()
+{
+    if (m_runtime) return;
+    m_runtime = std::make_unique<RuntimeClient>(
+                    "0.0.0.0:45455",
+                    "127.0.0.1:45454",
+                    this);
+    connect(m_runtime.get(), &RuntimeClient::stateReceived,
+            this,            &MainWindow::handleStateSnapshot);
+    m_runtime->start();
+
+    ui->actionConnect   ->setEnabled(false);
+    ui->actionDisconnect->setEnabled(true);
+    ui->buttonInject    ->setEnabled(true);
+}
+
+void MainWindow::on_actionDisconnect_triggered()
+{
+    if (!m_runtime) return;
+    m_runtime->shutdown();           // ← new public method
+    m_runtime.reset();
+
+    ui->actionDisconnect->setEnabled(false);
+    ui->actionConnect   ->setEnabled(true);
+    ui->buttonInject    ->setEnabled(false);
+    ui->labelCurrentState->setText(tr("Current State: -"));
+    ui->tableLastValues ->setRowCount(0);
+}
+
+void MainWindow::on_buttonInject_clicked()
+{
+    if (!m_runtime) return;
+    const QString name  = ui->lineEditInputName ->text().trimmed();
+    const QString value = ui->lineEditInputValue->text();
+    if (name.isEmpty()) return;
+    m_runtime->inject(name, value);
+    ui->lineEditInputValue->clear();
+}
+
+
+void MainWindow::on_actionGenerateCode_triggered()
+{
+    // 1) Save the current FSM JSON to a temp file
+    QString tmp = QDir::temp().filePath("current.fsm.json");
+    core_fsm::persistence::saveFile(m_doc,
+                                    tmp.toStdString(),
+                                    /*pretty*/true,
+                                    nullptr);
+
+    // 2) TODO: invoke your code generator on 'tmp'
+    QMessageBox::information(this,
+        tr("Generate Code"),
+        tr("FSM JSON written to %1\n(attach your codegen here)").arg(tmp));
+}
+
+void MainWindow::on_actionBuildRun_triggered()
+{
+    // Save JSON again, then launch the existing interpreter
+    QString tmp = QDir::temp().filePath("current.fsm.json");
+    core_fsm::persistence::saveFile(m_doc,
+                                    tmp.toStdString(),
+                                    /*pretty*/true,
+                                    nullptr);
+
+    auto *proc = new QProcess(this);
+    connect(proc,
+            QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
+            proc, &QObject::deleteLater);
+
+    // assume fsm_runtime is next to your UI executable
+    QString exe = QCoreApplication::applicationDirPath() + "/fsm_runtime";
+    proc->start(exe, { tmp,
+                       "0.0.0.0:45454",    // interpreter bind
+                       "127.0.0.1:45455"   // GUI listens here
+                     });
+
+    if (!proc->waitForStarted()) {
+        QMessageBox::critical(this,
+            tr("Run Failed"),
+            tr("Could not start “%1”").arg(exe));
+        delete proc;
+        return;
+    }
+
+    // auto‐connect to fresh instance
+    on_actionConnect_triggered();
+}
+

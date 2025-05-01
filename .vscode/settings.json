@@ -72,5 +72,14 @@
         "valarray": "cpp",
         "variant": "cpp",
         "regex": "cpp"
-    }
+    },
+    // Tell CMake Tools where Qt lives
+    "cmake.configureSettings": {
+        "CMAKE_PREFIX_PATH": "/Users/martinsevcik/Qt/5.12.12/5.12.12/clang_64/lib/cmake"
+    },
+    // Use Ninja or your generator of choice
+    "cmake.generator": "Ninja",
+    "cmake.configureArgs": [
+        "-DCMAKE_BUILD_TYPE=Debug"
+    ]
 }

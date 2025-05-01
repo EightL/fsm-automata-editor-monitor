@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 #include "../../external/nlohmann/json.hpp"
 using ordered_json = nlohmann::ordered_json;
 
@@ -12,7 +13,12 @@ using ordered_json = nlohmann::ordered_json;
 #include "transition.hpp"
 #include "variable.hpp"
 
+
 namespace core_fsm::persistence {
+
+// std::chrono::milliseconds
+// parseDelay(const nlohmann::json& j, const core_fsm::VarMap& vars);
+
 
 /**
  * @brief Description of an internal variable in the FSM.

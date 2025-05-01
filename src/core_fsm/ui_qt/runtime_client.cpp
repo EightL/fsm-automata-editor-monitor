@@ -1,5 +1,5 @@
 #include "runtime_client.hpp"
-#include <nlohmann/json.hpp>
+#include "../../../external/nlohmann/json.hpp" // for nlohmann::json
 #include "../io_bridge/udp_channel.hpp"   // ← add this line
 
 using namespace io_bridge;
