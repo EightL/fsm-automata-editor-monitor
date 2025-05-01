@@ -1,0 +1,53 @@
+// AUTO-GENERATED from {{ source }}
+#include "{{ id }}.hpp"
+#include "core_fsm/state.hpp"
+#include "core_fsm/transition.hpp"
+#include "core_fsm/variable.hpp"
+
+using namespace std::chrono_literals;
+using core_fsm::Variable;
+using core_fsm::State;
+using core_fsm::Transition;
+using core_fsm::Value;
+using core_fsm::Context;
+
+{{ id }}::{{ id }}() {
+    /* variables */
+    {% for v in variables %}
+    addVariable( Variable(
+        "{{ v.name }}",
+        Variable::Type::{{ v.cpp_type }},
+        Value{ {{ v.init_literal }} }
+    ) );
+    {% endfor %}
+
+    /* states */
+    {% for s in states %}
+    addState( State(
+        "{{ s.id }}",
+        [](Context& ctx){
+            {{ s.on_enter }}
+        }
+    ),
+    {% if s.initial %}true{% else %}false{% endif %} );
+    {% endfor %}
+
+    /* transitions */
+    {%- for t in transitions %}
+    addTransition( Transition(
+        "{{ t.trigger }}",
+        {{ t.guard_lambda }},
+        {% if t.delay_is_var %}
+            std::chrono::milliseconds(
+                std::get<int>(
+                    this->vars().at("{{ t.delay_ms }}").value()
+                )
+            ),
+        {% else %}
+            {{ t.delay_ms }}ms,
+        {% endif %}
+        {{ t.src_index }},
+        {{ t.dst_index }}
+    ) );
+    {%- endfor %}
+}

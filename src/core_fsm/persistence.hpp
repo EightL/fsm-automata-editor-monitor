@@ -157,14 +157,22 @@ struct adl_serializer<core_fsm::persistence::FsmDocument> {
         };
     }
     static void from_json(ordered_json const& j, core_fsm::persistence::FsmDocument& d) {
-        j.at("name").get_to(d.name);
+        // prefer "id" if present, otherwise use "name"
+        if (j.contains("id")) {
+          j.at("id").get_to(d.name);
+        }
+        else {
+          j.at("name").get_to(d.name);
+        }
+    
         if (j.contains("comment"))    j.at("comment").get_to(d.comment);
-        j.at("inputs").get_to(d.inputs);
-        j.at("outputs").get_to(d.outputs);
-        j.at("variables").get_to(d.variables);
-        j.at("states").get_to(d.states);
-        j.at("transitions").get_to(d.transitions);
+        j.at("inputs")      .get_to(d.inputs);
+        j.at("outputs")     .get_to(d.outputs);
+        j.at("variables")   .get_to(d.variables);
+        j.at("states")      .get_to(d.states);
+        j.at("transitions") .get_to(d.transitions);
     }
+    
 };
 
 } // namespace nlohmann

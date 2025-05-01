@@ -14,22 +14,22 @@
         {
             "name": "timeout",
             "type": "int",
-            "init": 4000
+            "init": 5000
         }
     ],
     "states": [
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"out\", 0); output(\"rt\", 0);"
+            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"out\", 1); output(\"rt\", timeout);"
+            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
         },
         {
             "id": "TIMING",
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\")); }; output(\"rt\", timeout - elapsed());"
+            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
         }
     ],
     "transitions": [

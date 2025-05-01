@@ -8,7 +8,7 @@
 #include <thread>
 #include <unordered_map>
 
-#include <nlohmann/json.hpp>
+#include "../../external/nlohmann/json.hpp" // nlohmann::json
 
 #include "../../core_fsm/automaton.hpp"
 #include "../../core_fsm/context.hpp"

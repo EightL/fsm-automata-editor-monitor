@@ -9,6 +9,7 @@
 #include <QCheckBox>
 #include <QPlainTextEdit>
 #include <QComboBox>
+#include <iostream>
 
 #include "runtime_client.hpp"
 
@@ -394,18 +395,61 @@ void MainWindow::on_buttonInject_clicked()
 
 void MainWindow::on_actionGenerateCode_triggered()
 {
-    // 1) Save the current FSM JSON to a temp file
-    QString tmp = QDir::temp().filePath("current.fsm.json");
+    // 1) dump current FSM to a temp JSON
+    QString tmpJson = QDir::temp().filePath("current.fsm.json");
     core_fsm::persistence::saveFile(m_doc,
-                                    tmp.toStdString(),
-                                    /*pretty*/true,
-                                    nullptr);
+        tmpJson.toStdString(), true, nullptr);
 
-    // 2) TODO: invoke your code generator on 'tmp'
+    // 2) ensure the CMake‐generated folder exists
+    QString genDir = QString::fromUtf8((GENERATED_DIR));
+    QDir().mkpath(genDir);
+
+    // 3) pick up the codegen program
+    QString program = QString::fromUtf8((CODEGEN_EXE));
+
+    // 4) sanity-check it
+    QFileInfo fi(program);
+    if (!fi.exists() || !(fi.permissions() & QFileDevice::ExeUser)) {
+        QMessageBox::critical(this,
+            tr("Generation Error"),
+            tr("Codegen not found or not executable:\n%1").arg(program));
+        return;
+    }
+
+    // 5) spawn it
+    QProcess proc(this);
+    proc.setProgram(program);
+    proc.setArguments({ tmpJson, genDir,
+                        /* if you still need templates from source dir: */
+                        QStringLiteral(SRC_TEMPLATE_DIR) 
+                      });
+
+    proc.start();
+    printf("Codegen: %s %s\n", program.toStdString().c_str(),
+           genDir.toStdString().c_str());
+    printf("argumetns: %s\n", proc.arguments().join(" ").toStdString().c_str());
+    if (!proc.waitForStarted(2000)) {
+        QMessageBox::critical(this,
+            tr("Generation Error"),
+            tr("Could not start %1:\n%2")
+              .arg(program, proc.errorString()));
+        return;
+    }
+    if (!proc.waitForFinished()) {
+        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        QMessageBox::critical(this,
+            tr("Generation Failed"),
+            tr("Codegen failed:\n%1").arg(err.isEmpty()
+                                        ? proc.errorString()
+                                        : err));
+        return;
+    }
+
     QMessageBox::information(this,
-        tr("Generate Code"),
-        tr("FSM JSON written to %1\n(attach your codegen here)").arg(tmp));
+        tr("Done"),
+        tr("Generated sources in %1").arg(genDir));
 }
+
 
 void MainWindow::on_actionBuildRun_triggered()
 {

@@ -19,6 +19,12 @@ struct Context {
     IOMap&   outputs;
     Clock::time_point stateSince;
 
+
+    template<class T>
+    void setVar(std::string const& n, T const& v) {
+        vars[n] = Value{v};
+    }
+
     // --- helper API expected by the inscription language --------
     template<class T> T getVar(std::string const& n) const;
     bool   defined(std::string const& in) const noexcept {
@@ -44,5 +50,6 @@ T Context::getVar(std::string const& n) const {
     if (it == vars.end()) throw std::runtime_error("var not found");
     return std::get<T>(it->second);
 }
+
 
 }  // namespace core_fsm
