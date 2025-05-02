@@ -172,8 +172,6 @@ QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &v
     return QGraphicsPathItem::itemChange(change, value);
 }
 
-// Add this implementation:
-
 void TransitionItem::stateDestroyed(StateItem* state)
 {
     // Just null out the pointer without trying to deregister
@@ -373,4 +371,45 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
     QTextOption textOption;
     textOption.setAlignment(Qt::AlignCenter);
     painter->drawText(textRect, labelText, textOption);
+}
+
+QPainterPath TransitionItem::shape() const
+{
+    // Start with the base arrow path - use qualified call to avoid name collision
+    QPainterPath resultPath = QGraphicsPathItem::path();
+    
+    // Only include the text box if both states exist
+    if (!m_fromState || !m_toState) {
+        return resultPath;
+    }
+    
+    // Calculate the text box region
+    QPointF labelPos;
+    QRectF textRect;
+    
+    // Check if this is a self-transition (same start and end state)
+    if (m_fromState == m_toState) {
+        // For self-transitions, position is below the loop
+        QPointF statePos = m_fromState->scenePos();
+        qreal distance = StateItem::RADIUS * 1.5;
+        labelPos = QPointF(statePos.x(), statePos.y() + distance);
+        textRect = QRectF(labelPos.x() - 40, labelPos.y(), 80, 40);
+    } else {
+        // Regular transition between different states - use the midpoint
+        labelPos = (m_fromState->scenePos() + m_toState->scenePos()) / 2.0;
+        textRect = QRectF(labelPos.x() - 40, labelPos.y() - 20, 80, 40);
+    }
+    
+    // Add the text rectangle to the shape path
+    // Convert text rect to item coordinates
+    textRect = mapFromScene(textRect).boundingRect();
+    
+    // Create a rounded rectangle path for the text box
+    QPainterPath textBoxPath;
+    textBoxPath.addRoundedRect(textRect, 5, 5);
+    
+    // Combine the arrow path with the text box path
+    resultPath.addPath(textBoxPath);
+    
+    return resultPath;
 }

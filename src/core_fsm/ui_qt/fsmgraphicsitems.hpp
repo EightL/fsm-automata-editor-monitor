@@ -72,6 +72,9 @@ public:
     void setGuard(const QString& guard) { m_guard = guard; }
     void setDelay(const QString& delay) { m_delay = delay; }
 
+    // Add shape method to the TransitionItem class declaration
+    QPainterPath shape() const override;
+
 private:
     StateItem* m_fromState;
     StateItem* m_toState;

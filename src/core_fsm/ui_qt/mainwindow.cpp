@@ -91,14 +91,39 @@ MainWindow::MainWindow(QWidget* parent)
             for (int i = 0; i < m_doc.states.size(); i++) {
                 if (m_doc.states[i].id == stateItem->stateId().toStdString()) {
                     // Select the corresponding item in the project tree
-                    QTreeWidgetItem* statesRoot = ui->projectTree->topLevelItem(2); // States category
-                    ui->projectTree->setCurrentItem(statesRoot->child(i));
-                    break;
+                    QTreeWidgetItem* statesRoot = ui->projectTree->topLevelItem(3); // States category
+                    if (statesRoot && i < statesRoot->childCount()) {
+                        ui->projectTree->setCurrentItem(statesRoot->child(i));
+                        break;
+                    }
                 }
             }
         }
         
-        // Handle transition selection - similar approach
+        // Handle transition selection
+        else if (TransitionItem* transItem = dynamic_cast<TransitionItem*>(item)) {
+            if (!transItem->fromItem() || !transItem->toItem()) return;
+            
+            std::string fromStateId = transItem->fromItem()->stateId().toStdString();
+            std::string toStateId = transItem->toItem()->stateId().toStdString();
+            
+            // Find the matching transition in the model
+            QTreeWidgetItem* transRoot = ui->projectTree->topLevelItem(4); // Transitions category
+            if (!transRoot) return;
+            
+            // Look for a transition with matching from/to states
+            for (int i = 0; i < m_doc.transitions.size(); i++) {
+                const auto& transition = m_doc.transitions[i];
+                if (transition.from == fromStateId && transition.to == toStateId) {
+                    // We need to be careful if there are multiple transitions between the same states
+                    // We can check other properties like trigger, guard, etc. if needed
+                    if (i < transRoot->childCount()) {
+                        ui->projectTree->setCurrentItem(transRoot->child(i));
+                        break;
+                    }
+                }
+            }
+        }
     });
 
     // Track when we ever see a first state packet
