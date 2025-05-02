@@ -14,7 +14,7 @@
         {
             "name": "timeout",
             "type": "int",
-            "init": 5000
+            "init": 3000
         }
     ],
     "states": [

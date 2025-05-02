@@ -5,7 +5,7 @@
 #include <variant>
 #include <chrono>
 #include "variable.hpp"  // Include this to use the Value definition from variable.hpp
-
+#include <stdexcept>  // For std::runtime_error
 namespace core_fsm {
 
 

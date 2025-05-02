@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <atomic>
 
 #include "../../external/nlohmann/json.hpp" // nlohmann::json
 
