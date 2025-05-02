@@ -109,6 +109,34 @@ void StateItem::removeOutgoingTransition(TransitionItem* transition)
     }
 }
 
+StateItem::~StateItem()
+{
+    // Create a copy of the sets since we'll be modifying them during iteration
+    QSet<TransitionItem*> incomingCopy = m_incomingTransitions;
+    QSet<TransitionItem*> outgoingCopy = m_outgoingTransitions;
+    
+    // Clear the sets first to prevent callbacks
+    m_incomingTransitions.clear();
+    m_outgoingTransitions.clear();
+    
+    // Now safely notify transitions that we're being destroyed
+    // without expecting callbacks
+    for (auto* transition : incomingCopy) {
+        if (transition) {
+            // Directly set null pointer instead of calling remove
+            // which would try to modify our now-empty set
+            transition->stateDestroyed(this);
+        }
+    }
+    
+    for (auto* transition : outgoingCopy) {
+        if (transition) {
+            // Same direct approach
+            transition->stateDestroyed(this);
+        }
+    }
+}
+
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
                           const QString& trigger, const QString& guard,
                           const QString& delay, QGraphicsItem* parent)
@@ -144,20 +172,42 @@ QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &v
     return QGraphicsPathItem::itemChange(change, value);
 }
 
+// Add this implementation:
+
+void TransitionItem::stateDestroyed(StateItem* state)
+{
+    // Just null out the pointer without trying to deregister
+    if (m_fromState == state) {
+        m_fromState = nullptr;
+    }
+    if (m_toState == state) {
+        m_toState = nullptr;  
+    }
+}
+
 TransitionItem::~TransitionItem()
 {
     // Set the flag first to prevent any new operations
     m_isBeingDestroyed = true;
     
-    // Unregister from the states with careful checks
+    // Safely unregister from states if they still exist
     if (m_fromState) {
-        m_fromState->removeOutgoingTransition(this);
-        m_fromState = nullptr;  // Clear pointer to prevent accidental reuse
+        // Use try/catch to handle potential invalid pointers
+        try {
+            m_fromState->removeOutgoingTransition(this);
+        } catch (...) {
+            // State might be in an invalid state, just ignore
+        }
+        m_fromState = nullptr;
     }
     
     if (m_toState) {
-        m_toState->removeIncomingTransition(this);
-        m_toState = nullptr;  // Clear pointer to prevent accidental reuse
+        try {
+            m_toState->removeIncomingTransition(this);
+        } catch (...) {
+            // State might be in an invalid state, just ignore
+        }
+        m_toState = nullptr;
     }
 }
 

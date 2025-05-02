@@ -16,7 +16,8 @@ class TransitionItem; // Forward declaration
 class StateItem : public QGraphicsEllipseItem {
 public:
     StateItem(const QString& id, bool isInitial, QGraphicsItem* parent = nullptr);
-    
+    ~StateItem();
+
     QString stateId() const { return m_id; }
     void setInitial(bool isInitial);
     QRectF boundingRect() const override;
@@ -47,10 +48,12 @@ private:
 
 class TransitionItem : public QGraphicsPathItem {
 public:
-    TransitionItem(StateItem* fromState, StateItem* toState, 
+    TransitionItem(StateItem* fromState, StateItem* toState,
                   const QString& trigger, const QString& guard,
                   const QString& delay, QGraphicsItem* parent = nullptr);
-                  
+    // Add this method to handle state destruction
+    void stateDestroyed(StateItem* state);
+
     void updatePosition();
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
