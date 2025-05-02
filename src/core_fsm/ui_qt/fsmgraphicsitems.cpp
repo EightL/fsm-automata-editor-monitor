@@ -347,11 +347,26 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         labelText += "\n@" + m_delay;
     }
     
-    // Find midpoint of the path for label position
-    QPointF midPoint = (m_fromState->scenePos() + m_toState->scenePos()) / 2.0;
+    QPointF labelPos;
+    QRectF textRect;
+    
+    // Check if this is a self-transition (same start and end state)
+    if (m_fromState == m_toState) {
+        // For self-transitions, position the label below the loop
+        QPointF statePos = m_fromState->scenePos();
+        
+        // Position the label below the lowest point of the loop
+        // This matches where the loop extends in createArrowPath
+        qreal distance = StateItem::RADIUS * 1.5; // Slightly below the control points
+        labelPos = QPointF(statePos.x(), statePos.y() + distance);
+        textRect = QRectF(labelPos.x() - 40, labelPos.y(), 80, 40);
+    } else {
+        // Regular transition between different states - use the midpoint
+        labelPos = (m_fromState->scenePos() + m_toState->scenePos()) / 2.0;
+        textRect = QRectF(labelPos.x() - 40, labelPos.y() - 20, 80, 40);
+    }
     
     // Draw text with a small white background for better visibility
-    QRectF textRect(midPoint.x() - 40, midPoint.y() - 20, 80, 40);
     painter->setBrush(QBrush(QColor(255, 255, 255, 180))); // Semi-transparent white
     painter->drawRoundedRect(textRect, 5, 5);
     
