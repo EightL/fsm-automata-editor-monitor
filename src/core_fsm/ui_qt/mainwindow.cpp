@@ -36,6 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->actionOpen,  &QAction::triggered, this, &MainWindow::on_actionOpen_triggered);
     connect(ui->actionSave,  &QAction::triggered, this, &MainWindow::on_actionSave_triggered);
     connect(ui->actionSaveAs,&QAction::triggered, this, &MainWindow::on_actionSaveAs_triggered);
+    connect(ui->actionNew, &QAction::triggered, this, &MainWindow::on_actionNew_triggered);
 
     // → wire selection changes in the tree to our new slot
     connect(ui->projectTree,
@@ -197,6 +198,25 @@ void MainWindow::populateProjectTree() {
     ui->projectTree->addTopLevelItem(trRoot);
 
     ui->projectTree->expandAll();
+}
+
+void MainWindow::on_actionNew_triggered()
+{
+    // 0) (optional) ask the user whether to save the current work
+    //    if (!maybeSaveChanges()) return; /
+
+    // / 1) reset the DTO ----------------------------------------------/
+    m_doc = core_fsm::persistence::FsmDocument{};   // fresh, empty document
+    m_doc.name = "untitled";                        // a harmless default
+
+    // 2) forget the path so the next Ctrl‑S falls back to Save As… /
+    m_currentFsmPath.clear();
+
+    // 3) refresh every view ----------------------------------------/
+    populateProjectTree();   // left‑hand tree
+    clearFsmVisualization(); // diagram scene
+    ui->labelCurrentState->setText(tr("Current State: -"));
+    ui->tableLastValues ->setRowCount(0);
 }
 
 // … the rest of your slots (connect/inject/generate/build/run) unchanged …
