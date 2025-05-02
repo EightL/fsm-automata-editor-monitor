@@ -41,6 +41,9 @@ private slots:
     void on_actionSaveAs_triggered();
     void on_actionNew_triggered();
 
+    void addState();
+    void addTransition();
+
     // runtime snapshot
     void handleStateSnapshot(const StateSnapshot& snap);
 
