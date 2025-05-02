@@ -54,7 +54,7 @@ private:
     std::unique_ptr<QGraphicsScene> m_scene;
     std::unique_ptr<RuntimeClient>  m_runtime;
     bool                            m_connected = false;
-
+    QMap<QString,QString> m_accumulatedInputs;
     // **new**: loaded FSM document & path
     core_fsm::persistence::FsmDocument m_doc;
     QString                             m_currentFsmPath;

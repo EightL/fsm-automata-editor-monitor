@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include "scheduler.hpp"    // at the top
 
 #include "variable.hpp"
 #include "transition.hpp"
@@ -36,6 +37,8 @@ public:
         std::string triggerValue;
     };
 
+
+
     Automaton() = default;
     ~Automaton() = default;
 
@@ -53,7 +56,12 @@ public:
     /** @brief Add a transition. */
     void addTransition(const Transition& t);
 
+    void broadcastSnapshot();
+
+    bool fireTransition(size_t transitionIndex, const std::string& triggerName);
     /// Runtime API ----------------------------------------------------------
+
+    bool processImmediateTransitions(const std::string& trigger);
 
     /** @brief Called by external code/threads to inject an input event. */
     void injectInput(const std::string& name,
@@ -94,7 +102,9 @@ public:
         return m_outputs;
     }
     
+    
 private:
+    Scheduler scheduler_;
     SnapshotFn m_snapshotHook;
 
     // For scheduling delayed transitions:

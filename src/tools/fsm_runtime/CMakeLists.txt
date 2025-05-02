@@ -5,6 +5,8 @@ project(fsm_runtime)
 # ---- Add this block so CMake can find the header-only JSON library ----
 find_package(nlohmann_json CONFIG REQUIRED)       # or find_package(nlohmann_json 3.2.0 REQUIRED)
 # -------------------------------------------------------------------------
+find_package(Qt5 REQUIRED COMPONENTS Qml)    # Qml gives you QJSEngine
+target_link_libraries(core_fsm PUBLIC Qt5::Qml)
 
 add_executable(fsm_runtime runtime_main.cpp)
 

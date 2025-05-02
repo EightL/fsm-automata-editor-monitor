@@ -11,6 +11,7 @@
 #include <QComboBox>
 #include <iostream>
 #include <cmath>
+#include <QDebug>
 
 #include <QDialog>
 #include <QFormLayout>
@@ -32,11 +33,11 @@ MainWindow::MainWindow(QWidget* parent)
     ui->graphicsViewDiagram->setScene(m_scene.get());
 
     // wire up core actions
-    connect(ui->actionConnect,    &QAction::triggered, this, &MainWindow::on_actionConnect_triggered);
-    connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::on_actionDisconnect_triggered);
-    connect(ui->buttonInject,     &QPushButton::clicked, this, &MainWindow::on_buttonInject_clicked);
-    connect(ui->actionGenerateCode, &QAction::triggered, this, &MainWindow::on_actionGenerateCode_triggered);
-    connect(ui->actionBuildRun,     &QAction::triggered, this, &MainWindow::on_actionBuildRun_triggered);
+    // connect(ui->actionConnect,    &QAction::triggered, this, &MainWindow::on_actionConnect_triggered);
+    // connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::on_actionDisconnect_triggered);
+    // connect(ui->buttonInject,     &QPushButton::clicked, this, &MainWindow::on_buttonInject_clicked);
+    // connect(ui->actionGenerateCode, &QAction::triggered, this, &MainWindow::on_actionGenerateCode_triggered);
+    // connect(ui->actionBuildRun,     &QAction::triggered, this, &MainWindow::on_actionBuildRun_triggered);
 
     // wire up file menu
     connect(ui->actionOpen,  &QAction::triggered, this, &MainWindow::on_actionOpen_triggered);
@@ -232,6 +233,11 @@ void MainWindow::on_actionNew_triggered()
 // … the rest of your slots (connect/inject/generate/build/run) unchanged …
 
 void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
+    qDebug() << "[GUI] handleStateSnapshot called:"
+             << " state=" << snap.state
+             << " inputs=" << snap.inputs
+             << " vars="   << snap.vars
+             << " outputs="<< snap.outputs;
     updateMonitor(snap);
 }
 
@@ -252,25 +258,38 @@ void MainWindow::updateMonitor(const StateSnapshot& snap) {
         }
     }
     
+    // 1) merge new inputs into the accumulated map
+    for (auto it = snap.inputs.constBegin(); it != snap.inputs.constEnd(); ++it) {
+        m_accumulatedInputs[it.key()] = it.value();
+    }
+
     ui->tableLastValues->clearContents();
 
-    int rows = snap.inputs.size() + snap.vars.size() + snap.outputs.size();
+    // Calculate total rows needed
+    int rows = m_accumulatedInputs.size() + snap.vars.size() + snap.outputs.size();
     ui->tableLastValues->setRowCount(rows);
+    
     int row = 0;
-    auto fill = [&](auto const& map){
+    
+    // 2) Show accumulated inputs first
+    for (auto it = m_accumulatedInputs.constBegin(); it != m_accumulatedInputs.constEnd(); ++it) {
+        ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(it.key()));
+        ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(it.value()));
+        ++row;
+    }
+    
+    // Then add variables and outputs as before
+    auto fillOthers = [&](auto const& map) {
         for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
-            ui->tableLastValues->setItem(row, 0,
-                new QTableWidgetItem(it.key()));
-            ui->tableLastValues->setItem(row, 1,
-                new QTableWidgetItem(it.value()));
+            ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(it.key()));
+            ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(it.value()));
             ++row;
         }
     };
-    fill(snap.inputs);
-    fill(snap.vars);
-    fill(snap.outputs);
+    
+    fillOthers(snap.vars);
+    fillOthers(snap.outputs);
 }
-
 void MainWindow::clearPropertyEditor() {
     // remove every row from the QFormLayout
     while (ui->formProperties->rowCount() > 0) {
@@ -465,13 +484,23 @@ void MainWindow::on_actionDisconnect_triggered()
 
 void MainWindow::on_buttonInject_clicked()
 {
-    if (!m_runtime) return;
     const QString name  = ui->lineEditInputName ->text().trimmed();
     const QString value = ui->lineEditInputValue->text();
     if (name.isEmpty()) return;
-    m_runtime->inject(name, value);
+
+    // actually send to runtime…
+    if (m_runtime)
+        m_runtime->inject(name, value);
+
+    // ——— APPEND to table, don’t clear ———
+    int row = ui->tableLastValues->rowCount();
+    ui->tableLastValues->insertRow(row);
+    ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(name));
+    ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(value));
+
     ui->lineEditInputValue->clear();
 }
+
 
 
 void MainWindow::on_actionGenerateCode_triggered()
@@ -619,6 +648,7 @@ void MainWindow::visualizeFsm()
     // Set scene rect to contain all items with some padding
     m_scene->setSceneRect(m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50));
 }
+
 
 void MainWindow::layoutFsmElements()
 {

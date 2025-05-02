@@ -1,52 +1,106 @@
-// transition.cpp
+// transition.cpp (with lazy QJSEngine)
 #include "transition.hpp"
+#include <stdexcept>
+#include <variant>
 
 namespace core_fsm {
 
+//------------------------------------------------------------------------------
+// Lazy-initialized QJSEngine with helper functions
+//------------------------------------------------------------------------------
+namespace {
+    QJSEngine& engine() {
+        static bool initialized = false;
+        static QJSEngine e;
+        if (!initialized) {
+            e.evaluate(R"(
+                function valueof(name) { return ctx.inputs[name] || ""; }
+                function defined(name)  { return ctx.vars[name] !== undefined; }
+                function atoi(s)        { return parseInt(s, 10); }
+            )");
+            initialized = true;
+        }
+        return e;
+    }
+}
+
+//------------------------------------------------------------------------------
+// Transition implementation
+//------------------------------------------------------------------------------
 Transition::Transition(std::string inputName,
-                       GuardFn guard,
+                       std::string guardExpr,
                        std::chrono::milliseconds delay,
                        std::size_t src,
                        std::size_t dst)
   : m_inputName(std::move(inputName))
-  , m_guard(std::move(guard))
   , m_delay(delay)
   , m_src(src)
   , m_dst(dst)
-{}
+{
+    if (!guardExpr.empty()) {
+        // Wrap the expression in a JS function () => <expr>
+        QString jsFn = QString("(function(){ return %1; })").arg(
+            QString::fromStdString(guardExpr)
+        );
+        QJSValue fn = engine().evaluate(jsFn);
+        if (!fn.isCallable()) {
+            throw std::runtime_error("Guard compile error: " + guardExpr);
+        }
+        guardFn_ = fn;
+    }
+}
 
 bool Transition::isTriggered(const std::string& incomingInput,
                              const GuardCtx&    ctx) const
 {
-    // Must match the input name exactly (both empty = allowable unconditional)
-    if (incomingInput != m_inputName) {
-        return false;
+    // Input must match (empty==unconditional)
+    if (incomingInput != m_inputName) return false;
+
+    // No guard => always true
+    if (!guardFn_.isCallable()) return true;
+
+    // Build a JS context object { inputs: {...}, vars: {...} }
+    QJSEngine& eng = engine();
+    QJSValue jsCtx = eng.newObject();
+
+    // inputs
+    QJSValue jsInputs = eng.newObject();
+    for (auto const& kv : ctx.inputs) {
+        jsInputs.setProperty(
+            QString::fromStdString(kv.first),
+            QString::fromStdString(kv.second)
+        );
     }
-    // Evaluate guard if provided
-    if (m_guard) {
-        return m_guard(ctx);
+    jsCtx.setProperty("inputs", jsInputs);
+
+    // vars
+    QJSValue jsVars = eng.newObject();
+    for (auto const& kv : ctx.vars) {
+        QJSValue v;
+        std::visit([&](auto&& x) {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, int>)
+                v = QJSValue(x);
+            else if constexpr (std::is_same_v<T, double>)
+                v = QJSValue(x);
+            else if constexpr (std::is_same_v<T, std::string>)
+                v = QJSValue(QString::fromStdString(x));
+        }, kv.second);
+        jsVars.setProperty(QString::fromStdString(kv.first), v);
     }
-    return true;
-}
+    jsCtx.setProperty("vars", jsVars);
 
-bool Transition::isDelayed() const noexcept
-{
-    return m_delay.count() > 0;
-}
+    // Expose ctx for helper functions
+    eng.globalObject().setProperty("ctx", jsCtx);
 
-std::chrono::milliseconds Transition::delay() const noexcept
-{
-    return m_delay;
-}
-
-std::size_t Transition::src() const noexcept
-{
-    return m_src;
-}
-
-std::size_t Transition::dst() const noexcept
-{
-    return m_dst;
+    // Invoke the guard function
+    QJSValue fn = guardFn_;
+    QJSValue result = fn.call();
+    if (result.isError()) {
+        throw std::runtime_error(
+            "JS guard error: " + result.toString().toStdString());
+    }
+    return result.toBool();
 }
 
 } // namespace core_fsm

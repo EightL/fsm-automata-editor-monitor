@@ -8,6 +8,7 @@
 #include <thread>
 #include <unordered_map>
 #include <atomic>
+#include <QCoreApplication>
 
 #include "../../external/nlohmann/json.hpp" // nlohmann::json
 
@@ -33,21 +34,6 @@ static core_fsm::Variable::Type mapVarType(const std::string& t) {
     if (t == "int")   return core_fsm::Variable::Type::Int;
     if (t == "float") return core_fsm::Variable::Type::Double;
     return core_fsm::Variable::Type::String;
-}
-
-// Naively translate the most common guard pattern used in the spec
-//   atoi(valueof("in")) == 1  ➜  lambda comparing ctx.inputs["in"]
-static core_fsm::GuardFn makeGuard(const std::string& g) {
-    static const std::regex re(R"(^\s*atoi\(valueof\(\"([^\"]+)\"\)\)\s*==\s*([0-9]+)\s*$)");
-    std::smatch m;
-    if (!std::regex_match(g, m, re)) return nullptr; // not recognised
-    const std::string inName = m[1].str();
-    const int         eqVal  = std::stoi(m[2].str());
-    return [inName, eqVal](const core_fsm::GuardCtx& ctx) -> bool {
-        auto it = ctx.inputs.find(inName);
-        if (it == ctx.inputs.end()) return false;
-        return std::stoi(it->second) == eqVal;
-    };
 }
 
 // Build an Automaton from the persistence DTO (limited subset).
@@ -129,13 +115,15 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
         }
         // else null or unrecognized → leave at 0ms
 
-        fsm.addTransition({
-            tr.trigger,                    // input name
-            makeGuard(tr.guard),           // maybe-null guard
-            delay,                         // <–– now correct
-            idx.at(tr.from),
-            idx.at(tr.to)
-        });
+        fsm.addTransition(
+            core_fsm::Transition(
+                tr.trigger,         // input name
+                tr.guard,           // guard expression (string)
+                delay,              // delay in ms
+                idx.at(tr.from),    // source-state index
+                idx.at(tr.to)       // destination-state index
+            )
+        );
     }
 
 }
@@ -153,6 +141,7 @@ static void onSigInt(int){ g_stop = true; }
 // -----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    QCoreApplication app(argc, argv);
     const std::string fsmPath  = (argc > 1 ? argv[1] : "../examples/TOF.fsm.json");
     const std::string bindAddr = (argc > 2 ? argv[2] : "0.0.0.0:45454");
     const std::string peerAddr = (argc > 3 ? argv[3] : "127.0.0.1:45455");
