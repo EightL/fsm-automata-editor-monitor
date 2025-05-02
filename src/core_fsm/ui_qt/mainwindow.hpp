@@ -44,6 +44,9 @@ private slots:
 
     void addState();
     void addTransition();
+    void addVariable();
+    void addInput();
+    void addOutput();
 
     // runtime snapshot
     void handleStateSnapshot(const StateSnapshot& snap);

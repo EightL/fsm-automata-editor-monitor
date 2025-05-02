@@ -65,6 +65,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(ui->addStateButton, &QPushButton::clicked, this, &MainWindow::addState);
     connect(ui->addTransitionButton, &QPushButton::clicked, this, &MainWindow::addTransition);
+    connect(ui->addVariableButton, &QPushButton::clicked, this, &MainWindow::addVariable);
+    connect(ui->addInputButton, &QPushButton::clicked, this, &MainWindow::addInput);
+    connect(ui->addOutputButton, &QPushButton::clicked, this, &MainWindow::addOutput);
 
     // TODO: this might need some fixing
     // Connect signals for interactive scene
@@ -985,4 +988,184 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
 void MainWindow::changeEvent(QEvent* e) {
     QMainWindow::changeEvent(e);
     // Empty implementation to satisfy the linker
+}
+
+void MainWindow::addVariable()
+{
+    // Create dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Add New Variable"));
+    QFormLayout* form = new QFormLayout(&dialog);
+    
+    // Name field
+    QLineEdit* nameEdit = new QLineEdit();
+    form->addRow(tr("Name:"), nameEdit);
+    
+    // Initial value field (JSON)
+    QLineEdit* initEdit = new QLineEdit("0");  // Default to 0
+    initEdit->setPlaceholderText(tr("JSON value (number, string, array, etc.)"));
+    form->addRow(tr("Initial value:"), initEdit);
+    
+    // Dialog buttons
+    QDialogButtonBox* buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(buttons);
+    
+    // Set focus to name field
+    nameEdit->setFocus();
+    
+    // Show the dialog
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    
+    // Get values from the dialog
+    QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid Variable"), tr("Variable name cannot be empty."));
+        return;
+    }
+    
+    // Check for unique name
+    std::string newName = name.toStdString();
+    if (std::any_of(m_doc.variables.begin(), m_doc.variables.end(), 
+                   [&newName](const auto& var) { return var.name == newName; })) {
+        QMessageBox::warning(this, tr("Invalid Variable"), 
+                            tr("A variable with this name already exists."));
+        return;
+    }
+    
+    // Create the new variable
+    core_fsm::persistence::VariableDesc newVar;
+    newVar.name = newName;
+    
+    // Parse initial value
+    try {
+        newVar.init = nlohmann::json::parse(initEdit->text().toStdString(), nullptr, false);
+    } catch (...) {
+        // If parsing fails, use the raw text as a string value
+        newVar.init = initEdit->text().toStdString();
+    }
+    
+    // Add the variable
+    m_doc.variables.push_back(newVar);
+    
+    // Update UI
+    populateProjectTree();
+    
+    // Select the new variable in the tree
+    QTreeWidgetItem* varRoot = ui->projectTree->topLevelItem(2); // Variables category
+    if (varRoot && varRoot->childCount() > 0) {
+        ui->projectTree->setCurrentItem(varRoot->child(varRoot->childCount() - 1));
+    }
+}
+
+void MainWindow::addInput()
+{
+    // Create dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Add New Input"));
+    QFormLayout* form = new QFormLayout(&dialog);
+    
+    // Name field
+    QLineEdit* nameEdit = new QLineEdit();
+    form->addRow(tr("Name:"), nameEdit);
+    
+    // Dialog buttons
+    QDialogButtonBox* buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(buttons);
+    
+    // Set focus to name field
+    nameEdit->setFocus();
+    
+    // Show the dialog
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    
+    // Get values from the dialog
+    QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid Input"), tr("Input name cannot be empty."));
+        return;
+    }
+    
+    // Check for unique name
+    std::string newName = name.toStdString();
+    if (std::find(m_doc.inputs.begin(), m_doc.inputs.end(), newName) != m_doc.inputs.end()) {
+        QMessageBox::warning(this, tr("Invalid Input"), 
+                            tr("An input with this name already exists."));
+        return;
+    }
+    
+    // Add the input
+    m_doc.inputs.push_back(newName);
+    
+    // Update UI
+    populateProjectTree();
+    
+    // Select the new input in the tree
+    QTreeWidgetItem* inputRoot = ui->projectTree->topLevelItem(0); // Inputs category
+    if (inputRoot && inputRoot->childCount() > 0) {
+        ui->projectTree->setCurrentItem(inputRoot->child(inputRoot->childCount() - 1));
+    }
+}
+
+void MainWindow::addOutput()
+{
+    // Create dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Add New Output"));
+    QFormLayout* form = new QFormLayout(&dialog);
+    
+    // Name field
+    QLineEdit* nameEdit = new QLineEdit();
+    form->addRow(tr("Name:"), nameEdit);
+    
+    // Dialog buttons
+    QDialogButtonBox* buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(buttons);
+    
+    // Set focus to name field
+    nameEdit->setFocus();
+    
+    // Show the dialog
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    
+    // Get values from the dialog
+    QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid Output"), tr("Output name cannot be empty."));
+        return;
+    }
+    
+    // Check for unique name
+    std::string newName = name.toStdString();
+    if (std::find(m_doc.outputs.begin(), m_doc.outputs.end(), newName) != m_doc.outputs.end()) {
+        QMessageBox::warning(this, tr("Invalid Output"), 
+                            tr("An output with this name already exists."));
+        return;
+    }
+    
+    // Add the output
+    m_doc.outputs.push_back(newName);
+    
+    // Update UI
+    populateProjectTree();
+    
+    // Select the new output in the tree
+    QTreeWidgetItem* outputRoot = ui->projectTree->topLevelItem(1); // Outputs category
+    if (outputRoot && outputRoot->childCount() > 0) {
+        ui->projectTree->setCurrentItem(outputRoot->child(outputRoot->childCount() - 1));
+    }
 }
