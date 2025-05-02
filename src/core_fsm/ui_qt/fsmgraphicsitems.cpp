@@ -11,7 +11,11 @@ StateItem::StateItem(const QString& id, bool isInitial, QGraphicsItem* parent)
     m_font = QFont("Arial", 10);
     setBrush(QBrush(Qt::white));
     setPen(QPen(Qt::black, 2));
-    setFlags(QGraphicsItem::ItemIsSelectable | QGraphicsItem::ItemIsMovable);
+    
+    // Set flags to enable position notifications
+    setFlags(QGraphicsItem::ItemIsSelectable | 
+             QGraphicsItem::ItemIsMovable | 
+             QGraphicsItem::ItemSendsGeometryChanges);
 }
 
 void StateItem::setInitial(bool isInitial)
@@ -43,9 +47,46 @@ void StateItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
     }
 }
 
+QVariant StateItem::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    // If the position changed
+    if (change == ItemPositionChange || change == ItemPositionHasChanged) {
+        // Update all connected transitions
+        for (auto* transition : m_incomingTransitions) {
+            transition->updatePosition();
+        }
+        for (auto* transition : m_outgoingTransitions) {
+            transition->updatePosition();
+        }
+    }
+    
+    // Call the parent implementation to handle other changes
+    return QGraphicsEllipseItem::itemChange(change, value);
+}
+
+void StateItem::addIncomingTransition(TransitionItem* transition)
+{
+    m_incomingTransitions.insert(transition);
+}
+
+void StateItem::addOutgoingTransition(TransitionItem* transition)
+{
+    m_outgoingTransitions.insert(transition);
+}
+
+void StateItem::removeIncomingTransition(TransitionItem* transition)
+{
+    m_incomingTransitions.remove(transition);
+}
+
+void StateItem::removeOutgoingTransition(TransitionItem* transition)
+{
+    m_outgoingTransitions.remove(transition);
+}
+
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
-                            const QString& trigger, const QString& guard,
-                            const QString& delay, QGraphicsItem* parent)
+                          const QString& trigger, const QString& guard,
+                          const QString& delay, QGraphicsItem* parent)
     : QGraphicsPathItem(parent)
     , m_fromState(fromState), m_toState(toState)
     , m_trigger(trigger), m_guard(guard), m_delay(delay)
@@ -53,7 +94,27 @@ TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState,
     m_font = QFont("Arial", 8);
     setPen(QPen(Qt::black, 1.5));
     setFlags(QGraphicsItem::ItemIsSelectable);
+    
+    // Register with the states
+    if (m_fromState) {
+        m_fromState->addOutgoingTransition(this);
+    }
+    if (m_toState) {
+        m_toState->addIncomingTransition(this);
+    }
+    
     updatePosition();
+}
+
+TransitionItem::~TransitionItem()
+{
+    // Unregister from the states
+    if (m_fromState) {
+        m_fromState->removeOutgoingTransition(this);
+    }
+    if (m_toState) {
+        m_toState->removeIncomingTransition(this);
+    }
 }
 
 void TransitionItem::updatePosition()

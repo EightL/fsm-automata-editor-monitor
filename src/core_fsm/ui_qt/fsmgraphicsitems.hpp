@@ -9,6 +9,9 @@
 #include <QFont>
 #include <QBrush>
 #include <QPen>
+#include <QSet>
+
+class TransitionItem; // Forward declaration
 
 class StateItem : public QGraphicsEllipseItem {
 public:
@@ -20,10 +23,23 @@ public:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
     static constexpr qreal RADIUS = 40.0;
 
+    // Add this method to notify when position changes
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    
+    // Add these methods to manage connections with transitions
+    void addIncomingTransition(TransitionItem* transition);
+    void addOutgoingTransition(TransitionItem* transition);
+    void removeIncomingTransition(TransitionItem* transition);
+    void removeOutgoingTransition(TransitionItem* transition);
+
 private:
     QString m_id;
     bool m_isInitial;
     QFont m_font;
+
+    // Add these to track connected transitions
+    QSet<TransitionItem*> m_incomingTransitions;
+    QSet<TransitionItem*> m_outgoingTransitions;
 };
 
 class TransitionItem : public QGraphicsPathItem {
@@ -35,6 +51,9 @@ public:
     void updatePosition();
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+
+    // Add destructor declaration:
+    ~TransitionItem();
 
 private:
     StateItem* m_fromState;
