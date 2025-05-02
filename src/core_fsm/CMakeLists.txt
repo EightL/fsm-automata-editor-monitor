@@ -33,6 +33,7 @@ add_library(ui_qt_client
   ui_qt/mainwindow.cpp
   ui_qt/mainwindow.hpp
   ui_qt/mainwindow.ui
+  ui_qt/fsmgraphicsitems.cpp
 )
 
 target_include_directories(ui_qt_client PUBLIC

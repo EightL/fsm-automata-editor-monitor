@@ -10,8 +10,10 @@
 #include <QPlainTextEdit>
 #include <QComboBox>
 #include <iostream>
+#include <cmath>
 
 #include "runtime_client.hpp"
+#include "fsmgraphicsitems.hpp"
 
 MainWindow::MainWindow(QWidget* parent)
   : QMainWindow(parent)
@@ -45,6 +47,29 @@ MainWindow::MainWindow(QWidget* parent)
     
     // Populate the project tree on startup
     populateProjectTree();
+
+    // Connect signals for interactive scene
+    connect(m_scene.get(), &QGraphicsScene::selectionChanged, this, [this]() {
+        QList<QGraphicsItem*> items = m_scene->selectedItems();
+        if (items.isEmpty()) return;
+        
+        QGraphicsItem* item = items.first();
+        
+        // Handle state selection
+        if (StateItem* stateItem = dynamic_cast<StateItem*>(item)) {
+            // Find corresponding item in tree and select it
+            for (int i = 0; i < m_doc.states.size(); i++) {
+                if (m_doc.states[i].id == stateItem->stateId().toStdString()) {
+                    // Select the corresponding item in the project tree
+                    QTreeWidgetItem* statesRoot = ui->projectTree->topLevelItem(2); // States category
+                    ui->projectTree->setCurrentItem(statesRoot->child(i));
+                    break;
+                }
+            }
+        }
+        
+        // Handle transition selection - similar approach
+    });
 }
 
 MainWindow::~MainWindow() {
@@ -77,6 +102,7 @@ void MainWindow::on_actionOpen_triggered() {
     m_doc = std::move(doc);
     m_currentFsmPath = path;
     populateProjectTree();
+    visualizeFsm();
 }
 
 // ————— File → Save —————
@@ -183,6 +209,19 @@ void MainWindow::updateMonitor(const StateSnapshot& snap) {
     ui->labelCurrentState->setText(
         tr("Current State: %1").arg(snap.state)
     );
+
+    // Highlight current state in the visualization
+    std::string currentState = snap.state.toStdString();
+    for (const auto& stateId : m_stateItems.keys()) {
+        StateItem* item = m_stateItems[stateId];
+    
+        if (stateId == currentState) {
+            item->setBrush(QBrush(Qt::lightGray));
+        } else {
+            item->setBrush(QBrush(Qt::white));
+        }
+    }
+    
     ui->tableLastValues->clearContents();
 
     int rows = snap.inputs.size() + snap.vars.size() + snap.outputs.size();
@@ -295,6 +334,13 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         connect(actionEdit, &QPlainTextEdit::textChanged, this, [this, index, actionEdit]() {
             m_doc.states[index].onEnter = actionEdit->toPlainText().toStdString();
         });
+
+        // After updating state properties
+        if (m_stateItems.contains(m_doc.states[index].id)) {
+            m_stateItems[m_doc.states[index].id]->setInitial(m_doc.states[index].initial);
+            // Only update the graphics if needed
+        }
+
         return;
     }
 
@@ -344,6 +390,11 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         connect(toBox, &QComboBox::currentTextChanged, this, [this, index](const QString &txt){
             m_doc.transitions[index].to = txt.toStdString();
         });
+
+        // After updating transition properties
+        for (auto* item : m_transitionItems) {
+            item->updatePosition();
+        }
 
         return;
     }
@@ -482,5 +533,85 @@ void MainWindow::on_actionBuildRun_triggered()
 
     // auto‐connect to fresh instance
     on_actionConnect_triggered();
+}
+
+void MainWindow::clearFsmVisualization()
+{
+    m_scene->clear();
+    m_stateItems.clear();
+    m_transitionItems.clear();
+}
+
+void MainWindow::visualizeFsm()
+{
+    clearFsmVisualization();
+    
+    // Create state items
+    for (const auto& state : m_doc.states) {
+        StateItem* item = new StateItem(
+            QString::fromStdString(state.id), 
+            state.initial
+        );
+        m_scene->addItem(item);
+        m_stateItems[state.id] = item;
+    }
+    
+    // Layout states in a reasonable arrangement
+    layoutFsmElements();
+    
+    // Create transition items
+    for (const auto& transition : m_doc.transitions) {
+        // Skip transitions with invalid states
+        if (!m_stateItems.contains(transition.from) || !m_stateItems.contains(transition.to)) {
+            continue;
+        }
+        
+        QString delayText;
+        if (!transition.delay_ms.is_null()) {
+            if (transition.delay_ms.is_number_integer()) {
+                delayText = QString::number(transition.delay_ms.get<int>()) + "ms";
+            } else {
+                delayText = QString::fromStdString(transition.delay_ms.dump());
+            }
+        }
+        
+        TransitionItem* item = new TransitionItem(
+            m_stateItems[transition.from],
+            m_stateItems[transition.to],
+            QString::fromStdString(transition.trigger),
+            QString::fromStdString(transition.guard),
+            delayText
+        );
+        m_scene->addItem(item);
+        m_transitionItems.append(item);
+    }
+    
+    // Set scene rect to contain all items with some padding
+    m_scene->setSceneRect(m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50));
+}
+
+void MainWindow::layoutFsmElements()
+{
+    // Simple circular layout
+    const int states = m_stateItems.size();
+    if (states == 0) return;
+    
+    // For a single state, place it in the center
+    if (states == 1) {
+        m_stateItems.first()->setPos(0, 0);
+        return;
+    }
+    
+    // For multiple states, arrange in a circle
+    const qreal radius = 150.0;
+    int i = 0;
+    
+    for (auto* item : m_stateItems) {
+        qreal angle = 2.0 * M_PI * i / states;
+        qreal x = radius * std::cos(angle);
+        qreal y = radius * std::sin(angle);
+        item->setPos(x, y);
+        i++;
+    }
 }
 

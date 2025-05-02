@@ -7,7 +7,12 @@
 
 // #include "ui_mainwindow.h"
 #include "runtime_client.hpp"
-#include "../persistence.hpp" 
+#include "../persistence.hpp"
+#include "fsmgraphicsitems.hpp"
+
+// Forward declarations
+class RuntimeClient;
+class StateSnapshot;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -58,5 +63,13 @@ private:
 
     void clearPropertyEditor();
 
+    // FSM visualization
+    void visualizeFsm();
+    void clearFsmVisualization();
+    void layoutFsmElements();
+
+    // Keep track of visualization elements
+    QMap<std::string, StateItem*> m_stateItems;
+    QList<TransitionItem*> m_transitionItems;
 };
 
