@@ -105,23 +105,74 @@
         </layout>
        </widget>
       </widget>
-      <widget class="QSplitter" name="centralSplitter">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="handleWidth">
-        <number>6</number>
-       </property>
-       <widget class="QGraphicsView" name="graphicsViewDiagram">
-        <property name="dragMode">
-         <enum>QGraphicsView::RubberBandDrag</enum>
-        </property>
-       </widget>
-       <widget class="QPlainTextEdit" name="codeEditor">
-        <property name="placeholderText">
-         <string>State/Transition script...</string>
-        </property>
-       </widget>
+      <widget class="QWidget" name="centralWidget">
+       <layout class="QVBoxLayout" name="centralLayout">
+        <item>
+         <widget class="QWidget" name="diagramToolbar">
+          <layout class="QHBoxLayout" name="diagramToolbarLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QPushButton" name="addStateButton">
+             <property name="text">
+              <string>Add State</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="addTransitionButton">
+             <property name="text">
+              <string>Add Transition</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSplitter" name="centralSplitter">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="handleWidth">
+           <number>6</number>
+          </property>
+          <widget class="QGraphicsView" name="graphicsViewDiagram">
+           <property name="dragMode">
+            <enum>QGraphicsView::RubberBandDrag</enum>
+           </property>
+          </widget>
+          <widget class="QPlainTextEdit" name="codeEditor">
+           <property name="placeholderText">
+            <string>State/Transition script...</string>
+           </property>
+          </widget>
+         </widget>
+        </item>
+       </layout>
       </widget>
       <widget class="QScrollArea" name="scrollProperty">
        <property name="widgetResizable">
@@ -136,22 +187,7 @@
           <height>368</height>
          </rect>
         </property>
-        <layout class="QFormLayout" name="formProperties">
-         <item row="0" column="1">
-          <widget class="QPushButton" name="addStateButton">
-           <property name="text">
-            <string>Add State</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QPushButton" name="addTransitionButton">
-           <property name="text">
-            <string>Add Transition</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
+        <layout class="QFormLayout" name="formProperties"/>
        </widget>
       </widget>
      </widget>

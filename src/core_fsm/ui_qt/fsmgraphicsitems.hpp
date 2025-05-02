@@ -40,6 +40,9 @@ private:
     // Add these to track connected transitions
     QSet<TransitionItem*> m_incomingTransitions;
     QSet<TransitionItem*> m_outgoingTransitions;
+
+    // Add a flag to prevent recursive updates
+    bool m_updatingTransitions = false;
 };
 
 class TransitionItem : public QGraphicsPathItem {
@@ -55,6 +58,9 @@ public:
     // Add destructor declaration:
     ~TransitionItem();
 
+    // Add itemChange method to handle scene changes
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+
 private:
     StateItem* m_fromState;
     StateItem* m_toState;
@@ -63,4 +69,7 @@ private:
     QString m_delay;
     QFont m_font;
     QPainterPath createArrowPath(const QPointF& start, const QPointF& end);
+
+    // Add this field
+    bool m_isBeingDestroyed = false;
 };
