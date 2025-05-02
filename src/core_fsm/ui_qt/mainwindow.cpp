@@ -31,16 +31,24 @@ MainWindow::MainWindow(QWidget* parent)
     this->resize(1200, 800);
     ui->codeEditor->setEnabled(false);
 
+    // Create warning bar
+    m_warningBar = new QLabel(this);
+    m_warningBar->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    m_warningBar->setStyleSheet("background-color: #FFECB3; color: #9C6500; padding: 8px;");
+    m_warningBar->setWordWrap(true);
+    m_warningBar->setVisible(false);
+    ui->centralSplitter->insertWidget(1, m_warningBar);
+
     // ui->mainToolBar->hide();
     ui->tableLastValues->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->horizontalSplitter->setSizes({300, 600, 250});
-
     ui->horizontalSplitter->setStretchFactor(0, 0);  // tabs: fixed
     ui->horizontalSplitter->setStretchFactor(1, 1);  // diagram: stretch
     ui->horizontalSplitter->setStretchFactor(2, 0);  // properties: fixed
-
-    ui->centralSplitter->setStretchFactor(0, 1);    // graphicsViewDiagram stretches
-    ui->centralSplitter->setStretchFactor(1, 0);    // codeEditor stays minimal
+    ui->horizontalSplitter->setSizes({400, 15, 180});
+    ui->centralSplitter->setStretchFactor(0, 1);  // diagram grows
+    ui->centralSplitter->setStretchFactor(1, 0);  // warningBar fixed
+    ui->centralSplitter->setStretchFactor(2, 0);  // codeE
 
     ui->lineEditInputName->setSizePolicy(
         QSizePolicy::Expanding, QSizePolicy::Fixed
@@ -59,7 +67,7 @@ MainWindow::MainWindow(QWidget* parent)
             &MainWindow::on_projectTree_itemSelectionChanged);
 
     ui->actionDisconnect->setEnabled(false);
-    
+    m_warningBar->setContentsMargins(1,1,3,3);
     // Populate the project tree on startup
     populateProjectTree();
 
@@ -140,6 +148,7 @@ MainWindow::~MainWindow() {
 
 // ————— File → Open —————
 void MainWindow::on_actionOpen_triggered() {
+    // 1) ask for file
     QString path = QFileDialog::getOpenFileName(
         this,
         tr("Open FSM…"),
@@ -148,24 +157,47 @@ void MainWindow::on_actionOpen_triggered() {
     );
     if (path.isEmpty()) return;
 
+    // 2) clear previous warning (we'll re‐set it below if needed)
+    m_warningBar->clear();
+    m_warningBar->setVisible(false);
+
+    // 3) try to load, capturing any err/warning
     core_fsm::persistence::FsmDocument doc;
     std::string err;
-    if (!core_fsm::persistence::loadFile(path.toStdString(), doc, &err)) {
-        QMessageBox::critical(this,
-                              tr("Error Loading FSM"),
-                              tr("Failed to load “%1”:\n%2")
-                                .arg(path, QString::fromStdString(err)));
+    bool ok = core_fsm::persistence::loadFile(path.toStdString(), doc, &err);
+
+    // 4) if loadFile() said “hard error”, show only bar and bail
+    if (!ok) {
+        m_warningBar->setText(QString::fromStdString(err));
+        m_warningBar->setVisible(true);
         return;
     }
 
+    // 5) At this point we have a valid doc (maybe with a warning in err)
     m_doc = std::move(doc);
     m_currentFsmPath = path;
     populateProjectTree();
-    visualizeFsm();
-}
 
+    // 6) ALWAYS render the graph
+    visualizeFsm();
+
+    // 7) Now if err is non‐empty, show it as a warning bar
+    if (!err.empty()) {
+        m_warningBar->setText(QString::fromStdString(err));
+        m_warningBar->setVisible(true);
+    }
+    else {
+        // no warning → keep it hidden
+        m_warningBar->clear();
+        m_warningBar->setVisible(false);
+    }
+}
 // ————— File → Save —————
 void MainWindow::on_actionSave_triggered() {
+    // Clear any previous warnings
+    m_warningBar->clear();
+    m_warningBar->setVisible(false);
+    
     if (m_currentFsmPath.isEmpty()) {
         return on_actionSaveAs_triggered();
     }
@@ -175,9 +207,13 @@ void MainWindow::on_actionSave_triggered() {
           m_currentFsmPath.toStdString(),
           /*pretty*/true, &err))
     {
+        m_warningBar->setText(tr("Failed to save \"%1\": %2")
+                              .arg(m_currentFsmPath, QString::fromStdString(err)));
+        m_warningBar->setVisible(true);
+        
         QMessageBox::critical(this,
                               tr("Error Saving FSM"),
-                              tr("Failed to save “%1”:\n%2")
+                              tr("Failed to save \"%1\":\n%2")
                                 .arg(m_currentFsmPath, QString::fromStdString(err)));
     }
 }
@@ -260,8 +296,9 @@ void MainWindow::populateProjectTree() {
 
 void MainWindow::on_actionNew_triggered()
 {
-    // 0) (optional) ask the user whether to save the current work
-    //    if (!maybeSaveChanges()) return; /
+    // Clear any warnings when creating a new FSM
+    m_warningBar->clear();
+    m_warningBar->setVisible(false);
 
     // / 1) reset the DTO ----------------------------------------------/
     m_doc = core_fsm::persistence::FsmDocument{};   // fresh, empty document
@@ -633,6 +670,8 @@ void MainWindow::on_actionGenerateCode_triggered()
 
 void MainWindow::on_actionBuildRun_triggered()
 {
+    m_warningBar->clear();
+    m_warningBar->setVisible(false);
     // Save JSON again, then launch the existing interpreter
     QString tmp = QDir::temp().filePath("current.fsm.json");
     core_fsm::persistence::saveFile(m_doc,

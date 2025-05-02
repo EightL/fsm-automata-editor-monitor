@@ -199,6 +199,27 @@
             <enum>QGraphicsView::RubberBandDrag</enum>
            </property>
           </widget>
+            <widget class="QLabel" name="warningBar">
+           <property name="minimumSize">
+             <size>
+               <width>0</width><height>12</height>
+             </size>
+           </property>
+              <property name="maximumSize">
+                 <size>
+                <width>16777215</width><height>20</height>
+                 </size>
+            </property>
+           <property name="styleSheet">
+             <string>QLabel { background: #ffeeee; color: #aa0000; padding-left:4px; }</string>
+           </property>
+           <property name="alignment">
+             <set>Qt::AlignVCenter|Qt::AlignLeft</set>
+           </property>
+           <property name="visible">
+             <bool>false</bool>
+           </property>
+         </widget>
           <widget class="QPlainTextEdit" name="codeEditor">
            <property name="minimumSize">
             <size>

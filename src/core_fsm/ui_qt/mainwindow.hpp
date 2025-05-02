@@ -5,7 +5,7 @@
 #include <QString>
 #include <QTreeWidgetItem>
 #include <QTimer>
-
+#include <QLabel>
 // #include "ui_mainwindow.h"
 #include "runtime_client.hpp"
 #include "../persistence.hpp"
@@ -63,6 +63,7 @@ private:
     core_fsm::persistence::FsmDocument m_doc;
     QString                             m_currentFsmPath;
 
+    QLabel* m_warningBar{nullptr};
     // **new**: rebuild the tree
     void populateProjectTree();
 
