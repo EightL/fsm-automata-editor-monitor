@@ -48,6 +48,8 @@ private:
 
 class TransitionItem : public QGraphicsPathItem {
 public:
+    StateItem* fromItem() const { return m_fromState; }
+    StateItem*   toItem() const { return m_toState; }
     TransitionItem(StateItem* fromState, StateItem* toState,
                   const QString& trigger, const QString& guard,
                   const QString& delay, QGraphicsItem* parent = nullptr);

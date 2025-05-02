@@ -28,23 +28,29 @@ MainWindow::MainWindow(QWidget* parent)
   , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->resize(1200, 800);
+    ui->codeEditor->setEnabled(false);
 
+    // ui->mainToolBar->hide();
+    ui->tableLastValues->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->horizontalSplitter->setSizes({300, 600, 250});
+
+    ui->horizontalSplitter->setStretchFactor(0, 0);  // tabs: fixed
+    ui->horizontalSplitter->setStretchFactor(1, 1);  // diagram: stretch
+    ui->horizontalSplitter->setStretchFactor(2, 0);  // properties: fixed
+
+    ui->centralSplitter->setStretchFactor(0, 1);    // graphicsViewDiagram stretches
+    ui->centralSplitter->setStretchFactor(1, 0);    // codeEditor stays minimal
+
+    ui->lineEditInputName->setSizePolicy(
+        QSizePolicy::Expanding, QSizePolicy::Fixed
+    );
+    ui->lineEditInputValue->setSizePolicy(
+        QSizePolicy::Expanding, QSizePolicy::Fixed
+    );
     // diagram scene stub
     m_scene = std::make_unique<QGraphicsScene>(this);
     ui->graphicsViewDiagram->setScene(m_scene.get());
-
-    // wire up core actions
-    // connect(ui->actionConnect,    &QAction::triggered, this, &MainWindow::on_actionConnect_triggered);
-    // connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::on_actionDisconnect_triggered);
-    // connect(ui->buttonInject,     &QPushButton::clicked, this, &MainWindow::on_buttonInject_clicked);
-    // connect(ui->actionGenerateCode, &QAction::triggered, this, &MainWindow::on_actionGenerateCode_triggered);
-    // connect(ui->actionBuildRun,     &QAction::triggered, this, &MainWindow::on_actionBuildRun_triggered);
-
-    // wire up file menu
-    connect(ui->actionOpen,  &QAction::triggered, this, &MainWindow::on_actionOpen_triggered);
-    connect(ui->actionSave,  &QAction::triggered, this, &MainWindow::on_actionSave_triggered);
-    connect(ui->actionSaveAs,&QAction::triggered, this, &MainWindow::on_actionSaveAs_triggered);
-    connect(ui->actionNew, &QAction::triggered, this, &MainWindow::on_actionNew_triggered);
 
     // → wire selection changes in the tree to our new slot
     connect(ui->projectTree,
@@ -84,16 +90,21 @@ MainWindow::MainWindow(QWidget* parent)
         // Handle transition selection - similar approach
     });
 
-    // Set up auto-reconnect timer (1s)
+    // Track when we ever see a first state packet
+    m_receivedState = true;
+
+    // Fire once, 1 s after Build&Run, if no state has arrived
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
         if (!m_receivedState) {
-            QMessageBox::information(this,
+            QMessageBox::information(
+                this,
                 tr("Waiting for interpreter…"),
                 tr("No response received. Trying to connect…")
             );
-            if (!m_runtime) on_actionConnect_triggered();
+            if (!m_runtime)
+                on_actionConnect_triggered();
         }
     });
     
@@ -266,15 +277,11 @@ void MainWindow::on_actionNew_triggered()
 // … the rest of your slots (connect/inject/generate/build/run) unchanged …
 
 void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
-    qDebug() << "[GUI] handleStateSnapshot called:"
-             << " state=" << snap.state
-             << " inputs=" << snap.inputs
-             << " vars="   << snap.vars
-             << " outputs="<< snap.outputs;
-    
-    // Mark that we received state data
-    if (!m_receivedState) m_receivedState = true;
-    
+    if (!m_receivedState) {
+        m_receivedState = true;
+        // (optional) stop the timer early to avoid any late pop-up
+        m_reconnectTimer->stop();
+    }
     updateMonitor(snap);
 }
 
@@ -335,6 +342,9 @@ void MainWindow::clearPropertyEditor() {
 }
 
 void MainWindow::on_projectTree_itemSelectionChanged() {
+    // — hide/clear script box by default —
+    ui->codeEditor->clear();
+    ui->codeEditor->setEnabled(false);
     clearPropertyEditor();
 
     auto items = ui->projectTree->selectedItems();
@@ -426,7 +436,15 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             m_stateItems[m_doc.states[index].id]->setInitial(m_doc.states[index].initial);
             // Only update the graphics if needed
         }
-
+        ui->codeEditor->setEnabled(true);
+        ui->codeEditor->setPlainText(
+            QString::fromStdString(m_doc.states[index].onEnter)
+        );
+        connect(ui->codeEditor, &QPlainTextEdit::textChanged, this, [this,index](){
+            m_doc.states[index].onEnter =
+              ui->codeEditor->toPlainText().toStdString();
+        });
+        
         return;
     }
 
@@ -966,14 +984,5 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
 
 void MainWindow::changeEvent(QEvent* e) {
     QMainWindow::changeEvent(e);
-    if (e->type() == QEvent::PaletteChange) {
-        bool dark = palette().color(QPalette::Window).lightness() < 128;
-        ui->actionConnect->setIcon(
-            QIcon(dark ? ":/icons/dark/connect.png" : ":/icons/light/connect.png")
-        );
-        ui->actionDisconnect->setIcon(
-            QIcon(dark ? ":/icons/dark/disconnect.png" : ":/icons/light/disconnect.png")
-        );
-        // Add more icon changes for other action items as needed
-    }
+    // Empty implementation to satisfy the linker
 }

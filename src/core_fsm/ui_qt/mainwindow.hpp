@@ -4,6 +4,7 @@
 #include <memory>
 #include <QString>
 #include <QTreeWidgetItem>
+#include <QTimer>
 
 // #include "ui_mainwindow.h"
 #include "runtime_client.hpp"
@@ -81,4 +82,3 @@ private:
     QMap<std::string, StateItem*> m_stateItems;
     QList<TransitionItem*> m_transitionItems;
 };
-

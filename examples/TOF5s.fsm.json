@@ -18,14 +18,19 @@
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "output(\"out\",0);"
+            "onEnter": "timing = 5000;\n"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "output(\"out\",1);"
+            "onEnter": "timing = 5000;\n"
         },
         {
-            "id": "TIMING"
+            "id": "TIMING",
+            "onEnter": "timing = 5000;\n"
+        },
+        {
+            "id": "HELLO",
+            "onEnter": "timing = 5000;\n"
         }
     ],
     "transitions": [
@@ -51,6 +56,20 @@
             "from": "TIMING",
             "to": "IDLE",
             "delay_ms": "timeout"
+        },
+        {
+            "from": "ACTIVE",
+            "to": "HELLO",
+            "trigger": "in",
+            "guard": "atoi(valueof(\"in\"))==2",
+            "delay_ms": 0
+        },
+        {
+            "from": "HELLO",
+            "to": "IDLE",
+            "trigger": "in",
+            "guard": "atoi(valueof(\"in\"))==2",
+            "delay_ms": 0
         }
     ]
 }

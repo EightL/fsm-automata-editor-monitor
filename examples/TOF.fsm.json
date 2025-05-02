@@ -21,20 +21,15 @@
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
+            "onEnter": "timeout = 3000"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
+            "onEnter": "timeout = 3000"
         },
         {
             "id": "TIMING",
-            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
-        },
-        {
-            "id": "dsad",
-            "onEnter": "if (ctx.defined(\"set_to\")) {\n  ctx.setVar(\"timeout\", std::atoi(ctx.valueof(\"set_to\").c_str()));\n}\nctx.output(\"out\", 0);\nctx.output(\"rt\", 0);"
-
+            "onEnter": "timeout = 3000"
         }
     ],
     "transitions": [
@@ -99,12 +94,6 @@
         {
             "from": "ACTIVE",
             "to": "ACTIVE",
-            "delay_ms": 0
-        },
-        {
-            "from": "IDLE",
-            "to": "dsad",
-            "guard": "atoi(valueof(\"in\"))==2",
             "delay_ms": 0
         }
     ]
