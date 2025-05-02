@@ -40,6 +40,9 @@ public:
         nlohmann::json j = {{"type","shutdown"}};
         m_channel->send({ j.dump() });
     }
+    void setVariable(QString name, QString value);
+
+    void sendCustomMessage(const std::string& jsonMessage);
 
 public slots:
     /// Inject an input from the GUI into the FSM

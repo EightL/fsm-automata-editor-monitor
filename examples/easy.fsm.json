@@ -2,16 +2,18 @@
     "name": "untitled",
     "comment": "",
     "inputs": [
-        "hello"
+        "in1",
+        "in2",
+        "in3"
     ],
     "outputs": [
         "out"
     ],
     "variables": [
         {
-            "name": "var",
+            "name": "timeout",
             "type": "",
-            "init": 0
+            "init": 3000
         }
     ],
     "states": [
@@ -21,6 +23,9 @@
         },
         {
             "id": "2"
+        },
+        {
+            "id": "3"
         }
     ],
     "transitions": [
@@ -30,6 +35,20 @@
             "trigger": "in1",
             "guard": "atoi(valueof(\"in1\"))==0",
             "delay_ms": 1000
+        },
+        {
+            "from": "2",
+            "to": "3",
+            "trigger": "in2",
+            "guard": "atoi(valueof(\"in2\"))==0",
+            "delay_ms": "timeout"
+        },
+        {
+            "from": "3",
+            "to": "1",
+            "trigger": "in3",
+            "guard": "atoi(valueof(\"in3\"))==1",
+            "delay_ms": "timeout"
         }
     ]
 }

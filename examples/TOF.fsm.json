@@ -89,12 +89,12 @@
         {
             "from": "IDLE",
             "to": "ACTIVE",
-            "delay_ms": 0
+            "delay_ms": "timeout"
         },
         {
             "from": "ACTIVE",
             "to": "ACTIVE",
-            "delay_ms": 0
+            "delay_ms": "timeout"
         }
     ]
 }

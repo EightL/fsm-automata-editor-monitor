@@ -189,7 +189,11 @@ int main(int argc, char** argv)
             if (type == "inject") {
                 fsm.injectInput(j.at("name").get<std::string>(),
                                 j.at("value").get<std::string>());
-            } else if (type == "shutdown") {
+            } 
+            else if (type == "setVar") {
+                fsm.setVariable(j.at("name").get<std::string>(), j.at("value").get<std::string>());    // you’ll need to add this to your Automaton API
+            }
+            else if (type == "shutdown") {
                 g_stop = true;
             }
         }

@@ -144,6 +144,44 @@ bool Automaton::processImmediateTransitions(const std::string& trigger) {
     return anyFired;
 }
 
+void Automaton::setVariable(const std::string& name,
+                            const std::string& valueStr) noexcept
+{
+    // Look up the declared variable
+    auto it = m_vars.find(name);
+    if (it == m_vars.end())
+        return;   // unknown variable, ignore
+
+    // Parse the incoming string into the same variant type we stored at load time
+    const auto varType = it->second.type();
+    core_fsm::Value newVal;
+
+    try {
+        switch (varType) {
+            case Variable::Type::Int:
+                newVal = std::stoi(valueStr);
+                break;
+            case Variable::Type::Double:
+                newVal = std::stod(valueStr);
+                break;
+            case Variable::Type::String:
+                newVal = valueStr;
+                break;
+            // add other cases if you support arrays / objects …
+            default:
+                // fallback: store as string
+                newVal = valueStr;
+        }
+    }
+    catch (...) {
+        // on parse error, we’ll just store the raw string
+        newVal = valueStr;
+    }
+
+    // Overwrite the stored variable
+    it->second.set(std::move(newVal));
+}
+
 void Automaton::run() {
     // 0) Broadcast initial snapshot
     broadcastSnapshot();

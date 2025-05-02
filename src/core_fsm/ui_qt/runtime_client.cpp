@@ -37,6 +37,22 @@ void RuntimeClient::start() {
     m_thread->start();
 }
 
+void RuntimeClient::sendCustomMessage(const std::string& jsonMessage) {
+    io_bridge::Packet pkt;
+    pkt.json = jsonMessage;
+    m_channel->send(pkt);
+}
+
+void RuntimeClient::setVariable(QString name, QString value) {
+    if (!m_channel) return;
+    nlohmann::json j = {
+        {"type",  "setVar"},
+        {"name",  name.toStdString()},
+        {"value", value.toStdString()}
+    };
+    sendCustomMessage(j.dump());
+}
+
 void RuntimeClient::onThreadStarted() {
     qDebug() << "⏱  poll timer starting in thread:" << QThread::currentThread();
     // 3) Create a timer to poll the socket ~every 20ms

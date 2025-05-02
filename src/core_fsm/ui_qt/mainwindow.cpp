@@ -123,14 +123,7 @@ MainWindow::MainWindow(QWidget* parent)
     ui->tableLastValues->setEditTriggers(
         QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
     );
-    connect(ui->tableLastValues, &QTableWidget::cellChanged, this,
-            [this](int r, int c){
-        if (c == 1) {
-            QString n = ui->tableLastValues->item(r, 0)->text();
-            QString v = ui->tableLastValues->item(r, 1)->text();
-            if (m_runtime) m_runtime->inject(n, v);
-        }
-    });
+    connect(ui->tableLastValues, &QTableWidget::cellChanged, this,&MainWindow::handleTableCellChanged);
     
     // Zoom & pan: install event filter on the GraphicsView viewport
     ui->graphicsViewDiagram->setTransformationAnchor(
@@ -144,6 +137,36 @@ MainWindow::~MainWindow() {
         m_runtime.reset();
     }
     delete ui;
+}
+
+void MainWindow::handleTableCellChanged(int row, int column) 
+{
+    if (column != 1) return; // Only handle value column changes
+    
+    QString name = ui->tableLastValues->item(row, 0)->text();
+    QString value = ui->tableLastValues->item(row, 1)->text();
+    
+    // Check if this is a variable or an input
+    bool isVariable = std::any_of(m_doc.variables.begin(), m_doc.variables.end(),
+                                [&name](const auto& v) {
+                                    return QString::fromStdString(v.name) == name;
+                                });
+    
+    if (isVariable) {
+        // Send a setVar message to update the variable in the runtime
+        if (m_runtime) {
+            // Using the existing channel in RuntimeClient to send a custom message
+            nlohmann::json j = {
+                {"type", "setVar"},
+                {"name", name.toStdString()},
+                {"value", value.toStdString()}
+            };
+            m_runtime->sendCustomMessage(j.dump());
+        }
+    } else {
+        // Regular input injection
+        if (m_runtime) m_runtime->inject(name, value);
+    }
 }
 
 // ————— File → Open —————
@@ -326,54 +349,77 @@ void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
 }
 
 void MainWindow::updateMonitor(const StateSnapshot& snap) {
+    // Temporarily block cell-changed signals so our edits here don't fire injections
+    ui->tableLastValues->blockSignals(true);
+
+    // Update current state label
     ui->labelCurrentState->setText(
         tr("Current State: %1").arg(snap.state)
     );
 
-    // Highlight current state in the visualization
-    std::string currentState = snap.state.toStdString();
-    for (const auto& stateId : m_stateItems.keys()) {
-        StateItem* item = m_stateItems[stateId];
-    
-        if (stateId == currentState) {
-            item->setBrush(QBrush(Qt::lightGray));
-        } else {
-            item->setBrush(QBrush(Qt::white));
-        }
-    }
-    
-    // 1) merge new inputs into the accumulated map
-    for (auto it = snap.inputs.constBegin(); it != snap.inputs.constEnd(); ++it) {
-        m_accumulatedInputs[it.key()] = it.value();
+    // Highlight the active state in the diagram
+    std::string current = snap.state.toStdString();
+    for (auto id : m_stateItems.keys()) {
+        auto *item = m_stateItems[id];
+        item->setBrush(id == current ? QBrush(Qt::lightGray)
+                                     : QBrush(Qt::white));
     }
 
+    // 1) Build a fresh map of just the real inputs (drop vars from inputs)
+    QMap<QString,QString> inputs = snap.inputs;
+    for (auto const& v : m_doc.variables) {
+        inputs.remove(QString::fromStdString(v.name));
+    }
+
+    // 2) Compute total rows: inputs + vars + outputs
+    int rows = inputs.size() 
+             + snap.vars.size() 
+             + snap.outputs.size();
     ui->tableLastValues->clearContents();
-
-    // Calculate total rows needed
-    int rows = m_accumulatedInputs.size() + snap.vars.size() + snap.outputs.size();
     ui->tableLastValues->setRowCount(rows);
-    
+
     int row = 0;
-    
-    // 2) Show accumulated inputs first
-    for (auto it = m_accumulatedInputs.constBegin(); it != m_accumulatedInputs.constEnd(); ++it) {
-        ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(it.key()));
-        ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(it.value()));
-        ++row;
+
+    // 3) Fill inputs (non-editable)
+    for (auto it = inputs.constBegin(); it != inputs.constEnd(); ++it, ++row) {
+        auto *name = new QTableWidgetItem(it.key());
+        auto *val  = new QTableWidgetItem(it.value());
+        name->setFlags(name->flags() & ~Qt::ItemIsEditable);
+        val ->setFlags(val ->flags() & ~Qt::ItemIsEditable);
+        ui->tableLastValues->setItem(row, 0, name);
+        ui->tableLastValues->setItem(row, 1, val );
     }
-    
-    // Then add variables and outputs as before
-    auto fillOthers = [&](auto const& map) {
-        for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
-            ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(it.key()));
-            ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(it.value()));
-            ++row;
-        }
-    };
-    
-    fillOthers(snap.vars);
-    fillOthers(snap.outputs);
+
+    // 4) Fill variables (editable)
+    for (auto it = snap.vars.constBegin(); it != snap.vars.constEnd(); ++it, ++row) {
+        auto *name = new QTableWidgetItem(it.key());
+        auto *val  = new QTableWidgetItem(it.value());
+        // highlight variables
+        name->setBackground(QBrush(QColor(240,240,255)));
+        val ->setBackground(QBrush(QColor(240,240,255)));
+        // leave them editable
+        ui->tableLastValues->setItem(row, 0, name);
+        ui->tableLastValues->setItem(row, 1, val );
+    }
+
+    // 5) Fill outputs (non-editable)
+    for (auto it = snap.outputs.constBegin(); it != snap.outputs.constEnd(); ++it, ++row) {
+        auto *name = new QTableWidgetItem(it.key());
+        auto *val  = new QTableWidgetItem(it.value());
+        name->setFlags(name->flags() & ~Qt::ItemIsEditable);
+        val ->setFlags(val ->flags() & ~Qt::ItemIsEditable);
+        // optional output highlight
+        name->setBackground(QBrush(QColor(240,255,240)));
+        val ->setBackground(QBrush(QColor(240,255,240)));
+        ui->tableLastValues->setItem(row, 0, name);
+        ui->tableLastValues->setItem(row, 1, val );
+    }
+
+    // unblock signals so user edits fire
+    ui->tableLastValues->blockSignals(false);
 }
+
+
 void MainWindow::clearPropertyEditor() {
     // remove every row from the QFormLayout
     while (ui->formProperties->rowCount() > 0) {
@@ -584,14 +630,17 @@ void MainWindow::on_buttonInject_clicked()
     if (name.isEmpty()) return;
 
     // actually send to runtime…
-    if (m_runtime)
-        m_runtime->inject(name, value);
+    if (m_runtime) m_runtime->inject(name, value);
 
-    // ——— APPEND to table, don't clear ———
-    int row = ui->tableLastValues->rowCount();
-    ui->tableLastValues->insertRow(row);
-    ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(name));
-    ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(value));
+    // 2) append to table WITHOUT firing cellChanged
+    ui->tableLastValues->blockSignals(true);
+      int row = ui->tableLastValues->rowCount();
+      ui->tableLastValues->insertRow(row);
+      ui->tableLastValues->setItem(row, 0,
+          new QTableWidgetItem(name));
+      ui->tableLastValues->setItem(row, 1,
+          new QTableWidgetItem(value));
+    ui->tableLastValues->blockSignals(false);
     
     // Auto-scroll
     ui->tableLastValues->scrollToBottom();
@@ -670,6 +719,18 @@ void MainWindow::on_actionGenerateCode_triggered()
 
 void MainWindow::on_actionBuildRun_triggered()
 {
+    // If we’ve got any warning up top, refuse to run.
+    if (m_warningBar->isVisible()) {
+        QMessageBox::warning(
+            this,
+            tr("Cannot Run FSM"),
+            tr("Your FSM JSON has semantic errors:\n%1\n\n"
+                "Please fix them before running.")
+                .arg(m_warningBar->text())
+        );
+        
+        return;
+    }
     m_warningBar->clear();
     m_warningBar->setVisible(false);
     // Save JSON again, then launch the existing interpreter

@@ -47,6 +47,9 @@ public:
 
     /// Build the model ------------------------------------------------------
 
+    void setVariable(const std::string& name,
+        const std::string& valueStr) noexcept;
+        
     /** @brief Add an internal variable (by name). */
     void addVariable(const Variable& var);
 

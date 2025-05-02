@@ -78,7 +78,7 @@ private:
     void visualizeFsm();
     void clearFsmVisualization();
     void layoutFsmElements();
-
+    void handleTableCellChanged(int row, int column);
     // Add these method declarations if they don't exist:
     bool eventFilter(QObject* obj, QEvent* ev) override;
     void changeEvent(QEvent* e) override;
