@@ -76,18 +76,53 @@ QPainterPath TransitionItem::createArrowPath(const QPointF& start, const QPointF
     
     if (qFuzzyCompare(length, 0.0)) {
         // Self-transition (loop)
-        qreal radius = 30.0;
-        path.moveTo(start.x() + StateItem::RADIUS, start.y());
-        path.arcTo(start.x(), start.y() - radius, 2*radius, 2*radius, 0, 270);
         
-        // Add arrow head
-        QPointF arrowPoint(start.x() + StateItem::RADIUS, start.y());
-        path.moveTo(arrowPoint.x() - 5, arrowPoint.y() - 5);
-        path.lineTo(arrowPoint);
-        path.lineTo(arrowPoint.x() - 5, arrowPoint.y() + 5);
+        // Define the starting point on the state circle (lower-left quadrant)
+        const qreal startAngle = 140.0 * (M_PI/180.0); // 225 degrees in radians (south-west)
+        QPointF startPoint(
+            start.x() + StateItem::RADIUS * qCos(startAngle),
+            start.y() + StateItem::RADIUS * qSin(startAngle)
+        );
+        
+        // Define the ending point on the state circle (bottom quadrant)
+        const qreal endAngle = 35.0 * (M_PI/180.0); // 315 degrees in radians (south-east)
+        QPointF endPoint(
+            start.x() + StateItem::RADIUS * qCos(endAngle),
+            start.y() + StateItem::RADIUS * qSin(endAngle)
+        );
+        
+        // Define control points for a bezier curve
+        qreal distance = StateItem::RADIUS * 2; // control point distance from center
+        QPointF controlPoint1(
+            start.x() - distance/2,
+            start.y() + distance
+        );
+        QPointF controlPoint2(
+            start.x() + distance/2,
+            start.y() + distance
+        );
+        
+        // Create a cubic bezier curve as the path
+        path.moveTo(startPoint);
+        path.cubicTo(controlPoint1, controlPoint2, endPoint);
+        
+        // Calculate the direction at the end point for the arrow
+        QPointF direction = endPoint - controlPoint2;
+        qreal dirLength = qSqrt(direction.x() * direction.x() + direction.y() * direction.y());
+        direction = direction / dirLength;
+        QPointF perpDirection(-direction.y(), direction.x());
+        
+        // Draw arrow head
+        const qreal arrowSize = 8.0;
+        QPointF arrowP1 = endPoint - direction * arrowSize + perpDirection * arrowSize/2;
+        QPointF arrowP2 = endPoint - direction * arrowSize - perpDirection * arrowSize/2;
+        
+        path.moveTo(arrowP1);
+        path.lineTo(endPoint);
+        path.lineTo(arrowP2);
     }
     else {
-        // Calculate unit vector and perpendicular vectors
+        // Regular transition between different states - existing code
         QPointF unit = delta / length;
         QPointF perpUnit(-unit.y(), unit.x());
         
