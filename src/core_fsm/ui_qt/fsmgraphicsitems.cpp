@@ -3,10 +3,12 @@
 #include <QStyleOptionGraphicsItem>
 #include <QtMath>
 #include <QTextOption>
+#include <QTimer>
 
 StateItem::StateItem(const QString& id, bool isInitial, QGraphicsItem* parent)
     : QGraphicsEllipseItem(-RADIUS, -RADIUS, 2*RADIUS, 2*RADIUS, parent)
     , m_id(id), m_isInitial(isInitial)
+    , m_incomingTransitions(), m_outgoingTransitions() // Explicitly initialize the sets
 {
     m_font = QFont("Arial", 10);
     setBrush(QBrush(Qt::white));
@@ -49,39 +51,62 @@ void StateItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
 
 QVariant StateItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
-    // If the position changed
-    if (change == ItemPositionChange || change == ItemPositionHasChanged) {
-        // Update all connected transitions
-        for (auto* transition : m_incomingTransitions) {
-            transition->updatePosition();
-        }
-        for (auto* transition : m_outgoingTransitions) {
-            transition->updatePosition();
-        }
-    }
+    QVariant result = QGraphicsEllipseItem::itemChange(change, value);
     
-    // Call the parent implementation to handle other changes
-    return QGraphicsEllipseItem::itemChange(change, value);
+    if (change == ItemPositionHasChanged && !m_updatingTransitions) {
+        // Set the flag to prevent recursion
+        m_updatingTransitions = true;
+        
+        // Use local copies of the sets to avoid modification during iteration
+        QSet<TransitionItem*> incomingCopy = m_incomingTransitions;
+        QSet<TransitionItem*> outgoingCopy = m_outgoingTransitions;
+        
+        // Update all connected transitions
+        for (auto* transition : incomingCopy) {
+            if (transition) {
+                transition->updatePosition();
+            }
+        }
+        
+        for (auto* transition : outgoingCopy) {
+            if (transition) {
+                transition->updatePosition();
+            }
+        }
+        
+        // Reset the flag
+        m_updatingTransitions = false;
+    }
+
+    return result;
 }
 
 void StateItem::addIncomingTransition(TransitionItem* transition)
 {
-    m_incomingTransitions.insert(transition);
+    if (transition && !m_incomingTransitions.contains(transition)) {
+        m_incomingTransitions.insert(transition);
+    }
 }
 
 void StateItem::addOutgoingTransition(TransitionItem* transition)
 {
-    m_outgoingTransitions.insert(transition);
+    if (transition && !m_outgoingTransitions.contains(transition)) {
+        m_outgoingTransitions.insert(transition);
+    }
 }
 
 void StateItem::removeIncomingTransition(TransitionItem* transition)
 {
-    m_incomingTransitions.remove(transition);
+    if (transition && m_incomingTransitions.contains(transition)) {
+        m_incomingTransitions.remove(transition);
+    }
 }
 
 void StateItem::removeOutgoingTransition(TransitionItem* transition)
 {
-    m_outgoingTransitions.remove(transition);
+    if (transition && m_outgoingTransitions.contains(transition)) {
+        m_outgoingTransitions.remove(transition);
+    }
 }
 
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
@@ -95,36 +120,73 @@ TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState,
     setPen(QPen(Qt::black, 1.5));
     setFlags(QGraphicsItem::ItemIsSelectable);
     
-    // Register with the states
-    if (m_fromState) {
+    // Register with the states - only if both states exist
+    if (m_fromState && m_toState) {
         m_fromState->addOutgoingTransition(this);
-    }
-    if (m_toState) {
         m_toState->addIncomingTransition(this);
+        
+        // DON'T update position here - wait until added to scene
+        // The scene change handler will trigger the position update
+    }
+}
+
+QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    if (change == QGraphicsItem::ItemSceneHasChanged && scene() && !m_isBeingDestroyed) {
+        QTimer::singleShot(0, [this]() { 
+            // Check if object still exists and not being destroyed
+            if (!m_isBeingDestroyed && scene()) {
+                this->updatePosition(); 
+            }
+        });
     }
     
-    updatePosition();
+    return QGraphicsPathItem::itemChange(change, value);
 }
 
 TransitionItem::~TransitionItem()
 {
-    // Unregister from the states
+    // Set the flag first to prevent any new operations
+    m_isBeingDestroyed = true;
+    
+    // Unregister from the states with careful checks
     if (m_fromState) {
         m_fromState->removeOutgoingTransition(this);
+        m_fromState = nullptr;  // Clear pointer to prevent accidental reuse
     }
+    
     if (m_toState) {
         m_toState->removeIncomingTransition(this);
+        m_toState = nullptr;  // Clear pointer to prevent accidental reuse
     }
 }
 
 void TransitionItem::updatePosition()
 {
-    QPointF fromPos = m_fromState->scenePos();
-    QPointF toPos = m_toState->scenePos();
+    if (m_isBeingDestroyed) {
+        return;
+    }
     
-    // Calculate the path
-    QPainterPath path = createArrowPath(fromPos, toPos);
-    setPath(path);
+    // Check if both states exist before updating position
+    if (!m_fromState || !m_toState) {
+        return;
+    }
+    
+    // Add scene checks to ensure objects are still in the scene
+    if (!scene() || !m_fromState->scene() || !m_toState->scene()) {
+        return;
+    }
+    
+    try {
+        QPointF fromPos = m_fromState->scenePos();
+        QPointF toPos = m_toState->scenePos();
+        
+        // Calculate the path
+        QPainterPath path = createArrowPath(fromPos, toPos);
+        setPath(path);
+    } catch (...) {
+        // Silently handle exceptions from invalid pointers
+    }
 }
 
 QPainterPath TransitionItem::createArrowPath(const QPointF& start, const QPointF& end)
@@ -217,6 +279,11 @@ QRectF TransitionItem::boundingRect() const
 void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
     QGraphicsPathItem::paint(painter, option, widget);
+    
+    // Only draw the label if both states exist
+    if (!m_fromState || !m_toState) {
+        return;
+    }
     
     // Draw the label
     painter->setFont(m_font);

@@ -567,16 +567,42 @@ void MainWindow::on_actionBuildRun_triggered()
 
 void MainWindow::clearFsmVisualization()
 {
-    m_scene->clear();
-    m_stateItems.clear();
+    // First, remove all transitions from the scene
+    for (auto* transition : m_transitionItems) {
+        if (transition && transition->scene()) {
+            m_scene->removeItem(transition);
+            delete transition;
+        }
+    }
     m_transitionItems.clear();
+    
+    // Process events to ensure transitions are fully deleted
+    QApplication::processEvents();
+    
+    // Then remove all states
+    for (auto& pair : m_stateItems) {
+        if (pair && pair->scene()) {
+            m_scene->removeItem(pair);
+            delete pair;
+        }
+    }
+    m_stateItems.clear();
+    
+    // Finally clear anything else in the scene
+    m_scene->clear();
 }
 
 void MainWindow::visualizeFsm()
 {
+    // Make sure we don't have any pending item changes when starting
+    QApplication::processEvents();
+    
     clearFsmVisualization();
     
-    // Create state items
+    // Delay to ensure items are properly cleared
+    QApplication::processEvents();
+    
+    // Create states and assign positions before setting up transitions
     for (const auto& state : m_doc.states) {
         StateItem* item = new StateItem(
             QString::fromStdString(state.id), 
@@ -586,18 +612,21 @@ void MainWindow::visualizeFsm()
         m_stateItems[state.id] = item;
     }
     
-    // Layout states in a reasonable arrangement
     layoutFsmElements();
     
-    // Create transition items
+    // Process any pending position changes
+    QApplication::processEvents();
+    
+    // Now create transitions
     for (const auto& transition : m_doc.transitions) {
-        // Skip transitions with invalid states
+        // Skip invalid transitions
         if (!m_stateItems.contains(transition.from) || !m_stateItems.contains(transition.to)) {
             continue;
         }
         
         QString delayText;
         if (!transition.delay_ms.is_null()) {
+            // Format delay text
             if (transition.delay_ms.is_number_integer()) {
                 delayText = QString::number(transition.delay_ms.get<int>()) + "ms";
             } else {
@@ -605,18 +634,23 @@ void MainWindow::visualizeFsm()
             }
         }
         
-        TransitionItem* item = new TransitionItem(
-            m_stateItems[transition.from],
-            m_stateItems[transition.to],
-            QString::fromStdString(transition.trigger),
-            QString::fromStdString(transition.guard),
-            delayText
-        );
-        m_scene->addItem(item);
-        m_transitionItems.append(item);
+        // Verify states again before creating the transition
+        StateItem* fromState = m_stateItems.value(transition.from, nullptr);
+        StateItem* toState = m_stateItems.value(transition.to, nullptr);
+        
+        if (fromState && toState && fromState->scene() && toState->scene()) {
+            TransitionItem* item = new TransitionItem(
+                fromState, toState,
+                QString::fromStdString(transition.trigger),
+                QString::fromStdString(transition.guard),
+                delayText
+            );
+            
+            m_scene->addItem(item);
+            m_transitionItems.append(item);
+        }
     }
     
-    // Set scene rect to contain all items with some padding
     m_scene->setSceneRect(m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50));
 }
 
