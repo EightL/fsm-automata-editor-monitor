@@ -494,9 +494,35 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         connect(idEdit, &QLineEdit::editingFinished, this, [this, index, it, idEdit]() {
             QString newId = idEdit->text().trimmed();
             if (newId.isEmpty()) return;
-            m_doc.states[index].id = newId.toStdString();
-            it->setText(0, QString::fromStdString(m_doc.states[index].id) 
-                        + (m_doc.states[index].initial ? tr(" (initial)") : QString()));
+            
+            // Remember the old ID before changing it
+            std::string oldId = m_doc.states[index].id;
+            std::string newIdStr = newId.toStdString();
+            
+            // Skip if ID hasn't changed
+            if (oldId == newIdStr) return;
+            
+            // Change state ID in the model
+            m_doc.states[index].id = newIdStr;
+            
+            // Update tree item text
+            it->setText(0, newId + (m_doc.states[index].initial ? tr(" (initial)") : QString()));
+            
+            // Update all transitions that reference this state
+            for (auto& transition : m_doc.transitions) {
+                if (transition.from == oldId) {
+                    transition.from = newIdStr;
+                }
+                if (transition.to == oldId) {
+                    transition.to = newIdStr;
+                }
+            }
+            
+            // Refresh transitions in the tree
+            populateProjectTree();
+            
+            // Update visualizations
+            updateStateVisual(index);
         });
 
         // Initial flag
@@ -507,6 +533,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             m_doc.states[index].initial = on;
             it->setText(0, QString::fromStdString(m_doc.states[index].id) 
                         + (on ? tr(" (initial)") : QString()));
+            updateStateVisual(index);
         });
 
         // onEnter action
@@ -538,26 +565,53 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
     if (category == tr("Transitions")) {
         auto &trn = m_doc.transitions[index];
 
+        // Helper function to update the tree item text
+        auto updateTransitionLabel = [this, it, index]() {
+            const auto& t = m_doc.transitions[index];
+            QString label = QString::fromStdString(t.from)
+                          + " → "
+                          + QString::fromStdString(t.to)
+                          + "  [" + QString::fromStdString(t.guard) + "]";
+            if (!t.delay_ms.is_null()) {
+                if (t.delay_ms.is_number_integer()) {
+                    // true numeric delay
+                    label += tr(" @ %1ms")
+                            .arg(QString::number(t.delay_ms.get<int>()));
+                }
+                else {
+                    // fallback: show whatever JSON the user gave
+                    label += " @ " + QString::fromStdString(t.delay_ms.dump());
+                }
+            }
+            it->setText(0, label);
+            
+            // Update visual transition representation
+            updateTransitionVisual(index);
+        };
+
         // trigger (input event)
         auto *trigEdit = new QLineEdit(QString::fromStdString(trn.trigger));
         ui->formProperties->addRow(tr("Trigger:"), trigEdit);
-        connect(trigEdit, &QLineEdit::editingFinished, this, [this, index, trigEdit]() {
+        connect(trigEdit, &QLineEdit::editingFinished, this, [this, index, trigEdit, updateTransitionLabel]() {
             QString newTrigger = trigEdit->text().trimmed();
             m_doc.transitions[index].trigger = newTrigger.toStdString();
+            updateTransitionLabel();
         });
 
         // guard
         auto *guardEdit = new QLineEdit(QString::fromStdString(trn.guard));
         ui->formProperties->addRow(tr("Guard:"), guardEdit);
-        connect(guardEdit, &QLineEdit::editingFinished, this, [this, index, guardEdit]() {
+        connect(guardEdit, &QLineEdit::editingFinished, this, [this, index, guardEdit, updateTransitionLabel]() {
             m_doc.transitions[index].guard = guardEdit->text().toStdString();
+            updateTransitionLabel();
         });
 
         // delay (as JSON)
         auto *delayEdit = new QLineEdit(QString::fromStdString(trn.delay_ms.dump()));
         ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
-        connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit]() {
+        connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit, updateTransitionLabel]() {
             m_doc.transitions[index].delay_ms = nlohmann::json::parse(delayEdit->text().toStdString(), nullptr, false);
+            updateTransitionLabel();
         });
 
         // from/to comboboxes
@@ -569,16 +623,18 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         fromBox->addItems(states);
         fromBox->setCurrentText(QString::fromStdString(trn.from));
         ui->formProperties->addRow(tr("From:"), fromBox);
-        connect(fromBox, &QComboBox::currentTextChanged, this, [this, index](const QString &txt){
+        connect(fromBox, &QComboBox::currentTextChanged, this, [this, index, updateTransitionLabel](const QString &txt){
             m_doc.transitions[index].from = txt.toStdString();
+            updateTransitionLabel();
         });
 
         auto *toBox = new QComboBox;
         toBox->addItems(states);
         toBox->setCurrentText(QString::fromStdString(trn.to));
         ui->formProperties->addRow(tr("To:"), toBox);
-        connect(toBox, &QComboBox::currentTextChanged, this, [this, index](const QString &txt){
+        connect(toBox, &QComboBox::currentTextChanged, this, [this, index, updateTransitionLabel](const QString &txt){
             m_doc.transitions[index].to = txt.toStdString();
+            updateTransitionLabel();
         });
 
         // After updating transition properties
@@ -1268,4 +1324,63 @@ void MainWindow::addOutput()
     if (outputRoot && outputRoot->childCount() > 0) {
         ui->projectTree->setCurrentItem(outputRoot->child(outputRoot->childCount() - 1));
     }
+}
+
+// Add this method to update transition visuals
+void MainWindow::updateTransitionVisual(int transitionIndex) {
+    const auto& transition = m_doc.transitions[transitionIndex];
+    const std::string fromId = transition.from;
+    const std::string toId = transition.to;
+    
+    // Check if we need to rebuild due to endpoint changes
+    bool endpointChanged = true;
+    
+    // First, try to find any matching transition by index (not by endpoints)
+    // This assumes transitions and transition items are in the same order
+    if (transitionIndex < m_transitionItems.size()) {
+        auto* item = m_transitionItems[transitionIndex];
+        if (item && item->fromItem() && item->toItem()) {
+            // If either endpoint changed, rebuild the whole visual
+            if (item->fromItem()->stateId().toStdString() != fromId || 
+                item->toItem()->stateId().toStdString() != toId) {
+                // Endpoints changed, need full rebuild
+                visualizeFsm();
+                return;
+            } else {
+                // Same endpoints, just update properties
+                endpointChanged = false;
+                
+                // Update transition properties
+                QString delayText;
+                if (!transition.delay_ms.is_null()) {
+                    if (transition.delay_ms.is_number_integer()) {
+                        delayText = QString::number(transition.delay_ms.get<int>()) + "ms";
+                    } else {
+                        delayText = QString::fromStdString(transition.delay_ms.dump());
+                    }
+                }
+                
+                // Update the visual properties
+                item->setTrigger(QString::fromStdString(transition.trigger));
+                item->setGuard(QString::fromStdString(transition.guard));
+                item->setDelay(delayText);
+                item->update(); // Force repaint
+            }
+        }
+    }
+    
+    // If endpoints changed or we couldn't find a matching item, rebuild the visualization
+    if (endpointChanged) {
+        visualizeFsm();
+    }
+}
+
+// Add this method for updating state visuals
+void MainWindow::updateStateVisual(int stateIndex) {
+    const auto& state = m_doc.states[stateIndex];
+    std::string stateId = state.id;
+    
+    // We need to rebuild the visualization when state IDs change
+    // since transitions need to be reconnected to the renamed state
+    visualizeFsm();
 }

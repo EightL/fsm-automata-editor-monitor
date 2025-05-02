@@ -19,6 +19,7 @@ public:
     ~StateItem();
 
     QString stateId() const { return m_id; }
+    void setStateId(const QString& id) { m_id = id; }
     void setInitial(bool isInitial);
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
@@ -65,6 +66,11 @@ public:
 
     // Add itemChange method to handle scene changes
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+
+    // Add these methods to the TransitionItem class declaration
+    void setTrigger(const QString& trigger) { m_trigger = trigger; }
+    void setGuard(const QString& guard) { m_guard = guard; }
+    void setDelay(const QString& delay) { m_delay = delay; }
 
 private:
     StateItem* m_fromState;

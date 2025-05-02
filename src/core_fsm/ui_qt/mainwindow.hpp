@@ -85,4 +85,8 @@ private:
     // Keep track of visualization elements
     QMap<std::string, StateItem*> m_stateItems;
     QList<TransitionItem*> m_transitionItems;
+
+    // Add these methods in the private section
+    void updateTransitionVisual(int transitionIndex);
+    void updateStateVisual(int stateIndex);
 };
