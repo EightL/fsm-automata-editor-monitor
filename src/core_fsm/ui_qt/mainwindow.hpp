@@ -66,12 +66,17 @@ private:
     void updateMonitor(const StateSnapshot& snap);
 
     void clearPropertyEditor();
-
+    QTimer* m_reconnectTimer{nullptr};
+    bool    m_receivedState{false};
+    int     m_lastRowIndex{-1};
     // FSM visualization
     void visualizeFsm();
     void clearFsmVisualization();
     void layoutFsmElements();
 
+    // Add these method declarations if they don't exist:
+    bool eventFilter(QObject* obj, QEvent* ev) override;
+    void changeEvent(QEvent* e) override;
     // Keep track of visualization elements
     QMap<std::string, StateItem*> m_stateItems;
     QList<TransitionItem*> m_transitionItems;

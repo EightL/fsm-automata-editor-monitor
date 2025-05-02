@@ -1,4 +1,3 @@
-
 #include <chrono>
 #include <csignal>
 #include <fstream>
@@ -9,6 +8,8 @@
 #include <unordered_map>
 #include <atomic>
 #include <QCoreApplication>
+#include <unistd.h>
+#include <sys/select.h>
 
 #include "../../external/nlohmann/json.hpp" // nlohmann::json
 
@@ -128,6 +129,16 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
 
 }
 
+// Add this helper function to check if stdin has data without blocking
+bool stdinHasData()
+{
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(STDIN_FILENO, &rfds);
+    timeval tv{0,0};  // zero-timeout = non-blocking poll
+    return select(STDIN_FILENO+1, &rfds, nullptr, nullptr, &tv) > 0;
+}
+
 }// namespace ------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
@@ -184,8 +195,10 @@ int main(int argc, char** argv)
         }
 
         // 4b) Stdin -----------------------------------------------------------
-        std::string line;
-        if (std::getline(std::cin, line)) {               // blocks until <Enter>
+        // Replace blocking stdin read with non-blocking check
+        if (stdinHasData()) {
+            std::string line;
+            std::getline(std::cin, line);
             const auto pos = line.find(':');
             if (pos != std::string::npos)
                 fsm.injectInput(line.substr(0,pos), line.substr(pos+1));

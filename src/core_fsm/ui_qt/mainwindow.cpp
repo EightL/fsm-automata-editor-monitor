@@ -1,6 +1,7 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
-
+#include <QTimer>
+#include <QColor>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTableWidgetItem>
@@ -82,6 +83,38 @@ MainWindow::MainWindow(QWidget* parent)
         
         // Handle transition selection - similar approach
     });
+
+    // Set up auto-reconnect timer (1s)
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setSingleShot(true);
+    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
+        if (!m_receivedState) {
+            QMessageBox::information(this,
+                tr("Waiting for interpreter…"),
+                tr("No response received. Trying to connect…")
+            );
+            if (!m_runtime) on_actionConnect_triggered();
+        }
+    });
+    
+    // Make "Value" column editable for re-injecting
+    ui->tableLastValues->setEditTriggers(
+        QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
+    );
+    connect(ui->tableLastValues, &QTableWidget::cellChanged, this,
+            [this](int r, int c){
+        if (c == 1) {
+            QString n = ui->tableLastValues->item(r, 0)->text();
+            QString v = ui->tableLastValues->item(r, 1)->text();
+            if (m_runtime) m_runtime->inject(n, v);
+        }
+    });
+    
+    // Zoom & pan: install event filter on the GraphicsView viewport
+    ui->graphicsViewDiagram->setTransformationAnchor(
+        QGraphicsView::AnchorUnderMouse
+    );
+    ui->graphicsViewDiagram->viewport()->installEventFilter(this);
 }
 
 MainWindow::~MainWindow() {
@@ -238,6 +271,10 @@ void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
              << " inputs=" << snap.inputs
              << " vars="   << snap.vars
              << " outputs="<< snap.outputs;
+    
+    // Mark that we received state data
+    if (!m_receivedState) m_receivedState = true;
+    
     updateMonitor(snap);
 }
 
@@ -492,11 +529,23 @@ void MainWindow::on_buttonInject_clicked()
     if (m_runtime)
         m_runtime->inject(name, value);
 
-    // ——— APPEND to table, don’t clear ———
+    // ——— APPEND to table, don't clear ———
     int row = ui->tableLastValues->rowCount();
     ui->tableLastValues->insertRow(row);
     ui->tableLastValues->setItem(row, 0, new QTableWidgetItem(name));
     ui->tableLastValues->setItem(row, 1, new QTableWidgetItem(value));
+    
+    // Auto-scroll
+    ui->tableLastValues->scrollToBottom();
+    
+    // Highlight previous row
+    if (m_lastRowIndex >= 0) {
+        auto prevName = ui->tableLastValues->item(m_lastRowIndex, 0);
+        auto prevVal  = ui->tableLastValues->item(m_lastRowIndex, 1);
+        if (prevName) prevName->setBackground(QBrush(QColor(230,230,255)));
+        if (prevVal)  prevVal->setBackground(QBrush(QColor(230,230,255)));
+    }
+    m_lastRowIndex = row;
 
     ui->lineEditInputValue->clear();
 }
@@ -590,8 +639,10 @@ void MainWindow::on_actionBuildRun_triggered()
         return;
     }
 
-    // auto‐connect to fresh instance
+    // Auto-connect to fresh instance with timeout
     on_actionConnect_triggered();
+    m_receivedState = false; 
+    m_reconnectTimer->start(1000);  // wait 1s for first packet
 }
 
 void MainWindow::clearFsmVisualization()
@@ -886,5 +937,43 @@ void MainWindow::addTransition()
     QTreeWidgetItem* transitionsRoot = ui->projectTree->topLevelItem(4); // Transitions category
     if (transitionsRoot && transitionsRoot->childCount() > 0) {
         ui->projectTree->setCurrentItem(transitionsRoot->child(transitionsRoot->childCount() - 1));
+    }
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
+    if (obj == ui->graphicsViewDiagram->viewport()) {
+        // Zoom (⇧+wheel) – already in place
+        if (ev->type() == QEvent::Wheel) {
+            // ...
+        }
+        // Space key toggles pan mode
+        if (ev->type() == QEvent::KeyPress || ev->type() == QEvent::KeyRelease) {
+            auto* ke = static_cast<QKeyEvent*>(ev);
+            if (ke->key() == Qt::Key_Space) {
+                bool pressed = (ev->type() == QEvent::KeyPress);
+                ui->graphicsViewDiagram->setDragMode(
+                    pressed
+                        ? QGraphicsView::ScrollHandDrag
+                        : QGraphicsView::RubberBandDrag
+                );
+                return false; // let QGraphicsView also handle it
+            }
+        }
+        // While in ScrollHandDrag, mouse moves will pan automatically
+    }
+    return QMainWindow::eventFilter(obj, ev);
+}
+
+void MainWindow::changeEvent(QEvent* e) {
+    QMainWindow::changeEvent(e);
+    if (e->type() == QEvent::PaletteChange) {
+        bool dark = palette().color(QPalette::Window).lightness() < 128;
+        ui->actionConnect->setIcon(
+            QIcon(dark ? ":/icons/dark/connect.png" : ":/icons/light/connect.png")
+        );
+        ui->actionDisconnect->setIcon(
+            QIcon(dark ? ":/icons/dark/disconnect.png" : ":/icons/light/disconnect.png")
+        );
+        // Add more icon changes for other action items as needed
     }
 }
