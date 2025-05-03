@@ -48,6 +48,7 @@ public slots:
 signals:
     /// Emitted whenever we receive a “state” JSON over UDP
     void stateReceived(StateSnapshot snapshot);
+    void logMessage(const QString& message); // New signal for logging
 
 private slots:
     /// Runs in the worker thread: sets up the timer

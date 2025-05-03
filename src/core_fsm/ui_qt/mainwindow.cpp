@@ -19,6 +19,7 @@
 #include <QVBoxLayout>
 #include <QDialogButtonBox>
 #include <QInputDialog>
+#include <QDateTime>
 
 #include "runtime_client.hpp"
 #include "fsmgraphicsitems.hpp"
@@ -29,8 +30,21 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ui->setupUi(this);
     this->resize(1200, 800);
-    ui->codeEditor->setEnabled(false);
-
+    
+    // Configure codeEditor as a console with white background and black text
+    ui->codeEditor->setReadOnly(true);
+    ui->codeEditor->setEnabled(true);
+    ui->codeEditor->setPlaceholderText(tr("Log output will appear here..."));
+    
+    // Update styling to white background with black text
+    ui->codeEditor->setStyleSheet(
+        "background-color: #fff; "
+        "color: #000; "
+        "font-family: monospace; "
+        "border: 1px solid #ccc; "
+        "padding: 5px;"
+    );
+    
     // Create warning bar
     m_warningBar = new QLabel(this);
     m_warningBar->setFrameStyle(QFrame::Panel | QFrame::Sunken);
@@ -453,9 +467,9 @@ void MainWindow::clearPropertyEditor() {
 }
 
 void MainWindow::on_projectTree_itemSelectionChanged() {
-    // — hide/clear script box by default —
-    ui->codeEditor->clear();
-    ui->codeEditor->setEnabled(false);
+    // — Don't clear or modify the console anymore —
+    // ui->codeEditor->clear();
+    // ui->codeEditor->setEnabled(false);
     clearPropertyEditor();
 
     auto items = ui->projectTree->selectedItems();
@@ -576,7 +590,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             updateStateVisual(index);
         });
 
-        // onEnter action
+        // onEnter action - use a separate editor in the property panel now
         auto *actionEdit = new QPlainTextEdit(QString::fromStdString(m_doc.states[index].onEnter));
         actionEdit->setPlaceholderText(tr("C/C++ snippet…"));
         ui->formProperties->addRow(tr("On Enter:"), actionEdit);
@@ -587,16 +601,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         // After updating state properties
         if (m_stateItems.contains(m_doc.states[index].id)) {
             m_stateItems[m_doc.states[index].id]->setInitial(m_doc.states[index].initial);
-            // Only update the graphics if needed
         }
-        ui->codeEditor->setEnabled(true);
-        ui->codeEditor->setPlainText(
-            QString::fromStdString(m_doc.states[index].onEnter)
-        );
-        connect(ui->codeEditor, &QPlainTextEdit::textChanged, this, [this,index](){
-            m_doc.states[index].onEnter =
-              ui->codeEditor->toPlainText().toStdString();
-        });
         
         // Add delete button at the end
         ui->formProperties->addRow("", deleteButton);
@@ -772,6 +777,11 @@ void MainWindow::on_actionConnect_triggered()
                     this);
     connect(m_runtime.get(), &RuntimeClient::stateReceived,
             this,            &MainWindow::handleStateSnapshot);
+            
+    // Add this new connection for logging
+    connect(m_runtime.get(), &RuntimeClient::logMessage,
+            this,            &MainWindow::appendToConsole);
+            
     m_runtime->start();
 
     ui->actionConnect   ->setEnabled(false);
@@ -1681,4 +1691,17 @@ void MainWindow::updateStateVisual(int stateIndex) {
     // We need to rebuild the visualization when state IDs change
     // since transitions need to be reconnected to the renamed state
     visualizeFsm();
+}
+
+// Add a new method to write to the console
+void MainWindow::appendToConsole(const QString& text)
+{
+    // Append the text with timestamp
+    QString timestamp = QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss.zzz] ");
+    ui->codeEditor->appendPlainText(timestamp + text);
+    
+    // Auto-scroll to bottom
+    QTextCursor c = ui->codeEditor->textCursor();
+    c.movePosition(QTextCursor::End);
+    ui->codeEditor->setTextCursor(c);
 }
