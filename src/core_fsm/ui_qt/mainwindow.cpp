@@ -964,6 +964,12 @@ void MainWindow::clearFsmVisualization()
 
 void MainWindow::visualizeFsm()
 {
+    // Store existing state positions before clearing
+    QMap<std::string, QPointF> statePositions;
+    for (auto it = m_stateItems.begin(); it != m_stateItems.end(); ++it) {
+        statePositions[it.key()] = it.value()->pos();
+    }
+    
     // Make sure we don't have any pending item changes when starting
     QApplication::processEvents();
     
@@ -972,7 +978,10 @@ void MainWindow::visualizeFsm()
     // Delay to ensure items are properly cleared
     QApplication::processEvents();
     
-    // Create states and assign positions before setting up transitions
+    // Track which states are new (need automatic positioning)
+    QSet<QString> newStateIds;  // Changed from std::string to QString
+    
+    // Create states, reusing positions for existing states
     for (const auto& state : m_doc.states) {
         StateItem* item = new StateItem(
             QString::fromStdString(state.id), 
@@ -980,9 +989,18 @@ void MainWindow::visualizeFsm()
         );
         m_scene->addItem(item);
         m_stateItems[state.id] = item;
+        
+        // If this state existed before, restore its position
+        if (statePositions.contains(state.id)) {
+            item->setPos(statePositions[state.id]);
+        } else {
+            // Mark as new state needing position assignment
+            newStateIds.insert(QString::fromStdString(state.id));  // Convert to QString
+        }
     }
     
-    layoutFsmElements();
+    // Only lay out new states
+    layoutNewStateElements(newStateIds);
     
     // Process any pending position changes
     QApplication::processEvents();
@@ -1024,6 +1042,97 @@ void MainWindow::visualizeFsm()
     m_scene->setSceneRect(m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50));
 }
 
+// Add this new method to position only new states
+void MainWindow::layoutNewStateElements(const QSet<QString>& newStateIds)
+{
+    if (newStateIds.isEmpty()) return;
+    
+    // If all states are new, use the regular circular layout
+    if (newStateIds.size() == m_stateItems.size()) {
+        layoutFsmElements();
+        return;
+    }
+    
+    // Calculate bounding rectangle of existing states
+    QRectF existingBounds;
+    bool hasExisting = false;
+    
+    for (auto it = m_stateItems.begin(); it != m_stateItems.end(); ++it) {
+        if (!newStateIds.contains(QString::fromStdString(it.key()))) {  // Convert key to QString
+            if (!hasExisting) {
+                existingBounds = QRectF(it.value()->pos(), QSizeF(0, 0));
+                hasExisting = true;
+            } else {
+                existingBounds = existingBounds.united(QRectF(it.value()->pos(), QSizeF(0, 0)));
+            }
+        }
+    }
+    
+    // Position new states around existing ones
+    if (hasExisting) {
+        // Place new states evenly around the perimeter of existing states
+        qreal perimeter = 2 * (existingBounds.width() + existingBounds.height());
+        qreal spacing = perimeter / (newStateIds.size() + 1);
+        qreal padding = 100; // Distance from existing states
+        
+        int i = 0;
+        for (const QString& idStr : newStateIds) {
+            std::string id = idStr.toStdString();  // Convert back to std::string
+            auto* item = m_stateItems[id];
+            if (!item) continue;
+            
+            // Calculate position along perimeter
+            qreal pos = spacing * (i + 1);
+            QPointF newPos;
+            
+            if (pos < existingBounds.width()) {
+                // Top edge
+                newPos = QPointF(
+                    existingBounds.left() + pos,
+                    existingBounds.top() - padding
+                );
+            } else if (pos < existingBounds.width() + existingBounds.height()) {
+                // Right edge
+                newPos = QPointF(
+                    existingBounds.right() + padding,
+                    existingBounds.top() + (pos - existingBounds.width())
+                );
+            } else if (pos < 2 * existingBounds.width() + existingBounds.height()) {
+                // Bottom edge
+                newPos = QPointF(
+                    existingBounds.right() - (pos - existingBounds.width() - existingBounds.height()),
+                    existingBounds.bottom() + padding
+                );
+            } else {
+                // Left edge
+                newPos = QPointF(
+                    existingBounds.left() - padding,
+                    existingBounds.bottom() - (pos - 2 * existingBounds.width() - existingBounds.height())
+                );
+            }
+            
+            item->setPos(newPos);
+            i++;
+        }
+    } else {
+        // Place new states in a circle
+        const qreal radius = 150.0;
+        int i = 0;
+        int totalNew = newStateIds.size();
+        
+        for (const QString& idStr : newStateIds) {
+            std::string id = idStr.toStdString();  // Convert back to std::string
+            auto* item = m_stateItems[id];
+            if (!item) continue;
+            
+            qreal angle = 2.0 * M_PI * i / totalNew;
+            qreal x = radius * std::cos(angle);
+            qreal y = radius * std::sin(angle);
+            item->setPos(x, y);
+            i++;
+        }
+    }
+}
 
 void MainWindow::layoutFsmElements()
 {

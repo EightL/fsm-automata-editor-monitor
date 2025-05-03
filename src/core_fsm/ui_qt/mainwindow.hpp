@@ -80,6 +80,8 @@ private:
     void visualizeFsm();
     void clearFsmVisualization();
     void layoutFsmElements();
+    void layoutNewStateElements(const QSet<QString>& newStateIds);
+
     void handleTableCellChanged(int row, int column);
     // Add these method declarations if they don't exist:
     bool eventFilter(QObject* obj, QEvent* ev) override;
