@@ -62,7 +62,6 @@ void RuntimeClient::shutdown() {
   }
 
 void RuntimeClient::onThreadStarted() {
-    qDebug() << "⏱  poll timer starting in thread:" << QThread::currentThread();
     // 3) Create a timer to poll the socket ~every 20ms
     m_timer = new QTimer(this);
     m_timer->setInterval(20);
@@ -74,7 +73,7 @@ void RuntimeClient::onThreadStarted() {
 void RuntimeClient::pollChannel() {
     Packet p;
     if (m_channel && m_channel->poll(p)) {
-        qDebug() << "[RC] got one packet:" << QString::fromStdString(p.json);
+        // qDebug() << "[RC] got one packet:" << QString::fromStdString(p.json);
         
         auto j = nlohmann::json::parse(p.json, nullptr, false);
         if (j.is_discarded() || j.value("type","") != "state")
@@ -106,21 +105,50 @@ void RuntimeClient::pollChannel() {
         snap.inputs  = jsonToMap(j.at("inputs"));
         snap.vars    = jsonToMap(j.at("vars"));
         snap.outputs = jsonToMap(j.at("outputs"));
-
-        qDebug() << "[RC] emitting stateReceived for seq" << snap.seq;
+        
+        // Add detailed state change logging
+        QString stateChangeLog = QString("STATE CHANGED: %1").arg(snap.state);
+        
+        // Add inputs to log
+        if (!snap.inputs.isEmpty()) {
+            stateChangeLog += "\nInputs:";
+            for (auto it = snap.inputs.constBegin(); it != snap.inputs.constEnd(); ++it) {
+                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
+            }
+        }
+        
+        // Add variables to log
+        if (!snap.vars.isEmpty()) {
+            stateChangeLog += "\nVariables:";
+            for (auto it = snap.vars.constBegin(); it != snap.vars.constEnd(); ++it) {
+                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
+            }
+        }
+        
+        // Add outputs to log
+        if (!snap.outputs.isEmpty()) {
+            stateChangeLog += "\nOutputs:";
+            for (auto it = snap.outputs.constBegin(); it != snap.outputs.constEnd(); ++it) {
+                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
+            }
+        }
+        
+        // Emit the log message
+        emit logMessage(stateChangeLog);
         emit stateReceived(snap);
     }
 }
 
 void RuntimeClient::inject(QString name, QString value) {
-    printf("Injecting %s = %s\n", name.toStdString().c_str(), value.toStdString().c_str());
+    // Replace the direct function call with signal emission
+    emit logMessage(QString("Injected input %1 = %2").arg(name).arg(value));
+    
     if (!m_channel) return;
     nlohmann::json j = {
         {"type",  "inject"},
         {"name",  name.toStdString()},
         {"value", value.toStdString()}
     };
-    printf("sendinggg\n");
     m_channel->send({ j.dump() });
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
 }

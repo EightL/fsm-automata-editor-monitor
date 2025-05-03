@@ -28,6 +28,8 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
+    void appendToConsole(const QString& text);
+
 private slots:
     // from step 1…
     void on_actionConnect_triggered();
