@@ -139,10 +139,11 @@ StateItem::~StateItem()
 
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
                           const QString& trigger, const QString& guard,
-                          const QString& delay, QGraphicsItem* parent)
+                          const QString& delay, int offsetIndex, QGraphicsItem* parent)
     : QGraphicsPathItem(parent)
     , m_fromState(fromState), m_toState(toState)
     , m_trigger(trigger), m_guard(guard), m_delay(delay)
+    , m_offsetIndex(offsetIndex)
 {
     m_font = QFont("Arial", 8);
     setPen(QPen(Qt::black, 1.5));
@@ -345,6 +346,23 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         labelText += "\n@" + m_delay;
     }
     
+    // Calculate the text size dynamically using font metrics
+    QFontMetrics fm(m_font);
+    QStringList lines = labelText.split('\n');
+    int textWidth = 0;
+    int textHeight = 0;
+    
+    // Find the widest line and calculate total height
+    for (const QString& line : lines) {
+        textWidth = qMax(textWidth, fm.horizontalAdvance(line));
+        textHeight += fm.height();
+    }
+    
+    // Add padding around text
+    const int padding = 8;
+    int boxWidth = qMax(50, textWidth + 2 * padding); // Minimum 50 pixels wide
+    int boxHeight = qMax(30, textHeight + 2 * padding); // Minimum 30 pixels high
+    
     QPointF labelPos;
     QRectF textRect;
     
@@ -354,14 +372,38 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         QPointF statePos = m_fromState->scenePos();
         
         // Position the label below the lowest point of the loop
-        // This matches where the loop extends in createArrowPath
-        qreal distance = StateItem::RADIUS * 1.5; // Slightly below the control points
-        labelPos = QPointF(statePos.x(), statePos.y() + distance);
-        textRect = QRectF(labelPos.x() - 40, labelPos.y(), 80, 40);
+        qreal distance = StateItem::RADIUS * 1.5;
+        
+        // Apply horizontal offset for multiple self-transitions
+        const int offsetX = m_offsetIndex * (boxWidth + 10); // Shift based on actual box width
+        labelPos = QPointF(statePos.x() + offsetX, statePos.y() + distance);
+        textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y(), boxWidth, boxHeight);
     } else {
-        // Regular transition between different states - use the midpoint
-        labelPos = (m_fromState->scenePos() + m_toState->scenePos()) / 2.0;
-        textRect = QRectF(labelPos.x() - 40, labelPos.y() - 20, 80, 40);
+        // Regular transition between different states
+        QPointF fromPos = m_fromState->scenePos();
+        QPointF toPos = m_toState->scenePos();
+        QPointF midPoint = (fromPos + toPos) / 2.0;
+        
+        // Calculate perpendicular vector for offset
+        QPointF vec = toPos - fromPos;
+        QPointF perpVec(-vec.y(), vec.x());
+        
+        // Normalize the perpendicular vector
+        qreal length = qSqrt(perpVec.x() * perpVec.x() + perpVec.y() * perpVec.y());
+        if (!qFuzzyIsNull(length)) {
+            perpVec = perpVec / length;
+            
+            // Offset in perpendicular direction based on index
+            int side = (m_offsetIndex % 2 == 0) ? 1 : -1;
+            int magnitude = ((m_offsetIndex + 1) / 2) * (boxHeight + 10); // Scale offset by box height
+            QPointF offset = perpVec * side * magnitude;
+            
+            labelPos = midPoint + offset;
+        } else {
+            labelPos = midPoint;
+        }
+        
+        textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y() - boxHeight/2, boxWidth, boxHeight);
     }
     
     // Draw text with a small white background for better visibility
@@ -375,7 +417,7 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
 
 QPainterPath TransitionItem::shape() const
 {
-    // Start with the base arrow path - use qualified call to avoid name collision
+    // Start with the base arrow path
     QPainterPath resultPath = QGraphicsPathItem::path();
     
     // Only include the text box if both states exist
@@ -383,32 +425,75 @@ QPainterPath TransitionItem::shape() const
         return resultPath;
     }
     
-    // Calculate the text box region
+    // Build label text
+    QString labelText = m_trigger;
+    if (!m_guard.isEmpty()) {
+        labelText += "\n[" + m_guard + "]";
+    }
+    if (!m_delay.isEmpty()) {
+        labelText += "\n@" + m_delay;
+    }
+    
+    // Calculate the text size dynamically
+    QFontMetrics fm(m_font);
+    QStringList lines = labelText.split('\n');
+    int textWidth = 0;
+    int textHeight = 0;
+    
+    for (const QString& line : lines) {
+        textWidth = qMax(textWidth, fm.horizontalAdvance(line));
+        textHeight += fm.height();
+    }
+    
+    // Add padding around text
+    const int padding = 8;
+    int boxWidth = qMax(50, textWidth + 2 * padding);
+    int boxHeight = qMax(30, textHeight + 2 * padding);
+    
     QPointF labelPos;
     QRectF textRect;
     
     // Check if this is a self-transition (same start and end state)
     if (m_fromState == m_toState) {
-        // For self-transitions, position is below the loop
         QPointF statePos = m_fromState->scenePos();
         qreal distance = StateItem::RADIUS * 1.5;
-        labelPos = QPointF(statePos.x(), statePos.y() + distance);
-        textRect = QRectF(labelPos.x() - 40, labelPos.y(), 80, 40);
+        
+        // Apply horizontal offset for multiple self-transitions
+        const int offsetX = m_offsetIndex * (boxWidth + 10);
+        labelPos = QPointF(statePos.x() + offsetX, statePos.y() + distance);
+        textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y(), boxWidth, boxHeight);
     } else {
-        // Regular transition between different states - use the midpoint
-        labelPos = (m_fromState->scenePos() + m_toState->scenePos()) / 2.0;
-        textRect = QRectF(labelPos.x() - 40, labelPos.y() - 20, 80, 40);
+        // Regular transition between different states
+        QPointF fromPos = m_fromState->scenePos();
+        QPointF toPos = m_toState->scenePos();
+        QPointF midPoint = (fromPos + toPos) / 2.0;
+        
+        // Calculate perpendicular vector for offset
+        QPointF vec = toPos - fromPos;
+        QPointF perpVec(-vec.y(), vec.x());
+        
+        qreal length = qSqrt(perpVec.x() * perpVec.x() + perpVec.y() * perpVec.y());
+        if (!qFuzzyIsNull(length)) {
+            perpVec = perpVec / length;
+            
+            int side = (m_offsetIndex % 2 == 0) ? 1 : -1;
+            int magnitude = ((m_offsetIndex + 1) / 2) * (boxHeight + 10);
+            QPointF offset = perpVec * side * magnitude;
+            
+            labelPos = midPoint + offset;
+        } else {
+            labelPos = midPoint;
+        }
+        
+        textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y() - boxHeight/2, boxWidth, boxHeight);
     }
     
-    // Add the text rectangle to the shape path
-    // Convert text rect to item coordinates
+    // Convert text rect to item coordinates and add to path
     textRect = mapFromScene(textRect).boundingRect();
     
-    // Create a rounded rectangle path for the text box
     QPainterPath textBoxPath;
     textBoxPath.addRoundedRect(textRect, 5, 5);
     
-    // Combine the arrow path with the text box path
     resultPath.addPath(textBoxPath);
     
     return resultPath;
