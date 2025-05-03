@@ -31,6 +31,19 @@ MainWindow::MainWindow(QWidget* parent)
     ui->setupUi(this);
     this->resize(1200, 800);
     
+    for (auto *tbl : { ui->tableInputs,
+            ui->tableVariables,
+            ui->tableOutputs })
+    {
+    tbl->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    }
+
+    ui->tableInputs->setColumnCount(3);
+    ui->tableInputs->setHorizontalHeaderLabels(
+        QStringList{tr("Name"), tr("Value"), QString()});
+    ui->tableInputs->horizontalHeader()
+        ->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+
     // Configure codeEditor as a console with white background and black text
     ui->codeEditor->setReadOnly(true);
     ui->codeEditor->setEnabled(true);
@@ -54,7 +67,6 @@ MainWindow::MainWindow(QWidget* parent)
     ui->centralSplitter->insertWidget(1, m_warningBar);
 
     // ui->mainToolBar->hide();
-    ui->tableLastValues->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->horizontalSplitter->setSizes({300, 600, 250});
     ui->horizontalSplitter->setStretchFactor(0, 0);  // tabs: fixed
     ui->horizontalSplitter->setStretchFactor(1, 1);  // diagram: stretch
@@ -158,11 +170,7 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
     
-    // Make "Value" column editable for re-injecting
-    ui->tableLastValues->setEditTriggers(
-        QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
-    );
-    connect(ui->tableLastValues, &QTableWidget::cellChanged, this,&MainWindow::handleTableCellChanged);
+
     
     // Zoom & pan: install event filter on the GraphicsView viewport
     ui->graphicsViewDiagram->setTransformationAnchor(
@@ -171,40 +179,53 @@ MainWindow::MainWindow(QWidget* parent)
     ui->graphicsViewDiagram->viewport()->installEventFilter(this);
 }
 
-MainWindow::~MainWindow() {
-    if (m_runtime) {
-        m_runtime.reset();
-    }
+MainWindow::~MainWindow()
+{
+    shutdownInterpreterAndChannel();   // safety‑net for “quit” menu etc.
     delete ui;
 }
 
-void MainWindow::handleTableCellChanged(int row, int column) 
+
+void MainWindow::handleInputCellChanged(int row, int column)
 {
-    if (column != 1) return; // Only handle value column changes
-    
-    QString name = ui->tableLastValues->item(row, 0)->text();
-    QString value = ui->tableLastValues->item(row, 1)->text();
-    
-    // Check if this is a variable or an input
+    if (column != 1) return;           // only the value column
+
+    QString name  = ui->tableInputs->item(row, 0)->text();
+    QString value = ui->tableInputs->item(row, 1)->text();
+
+    // send as an inject
+    if (m_runtime) {
+        nlohmann::json j = {
+            {"type",  "inject"},
+            {"name",  name.toStdString()},
+            {"value", value.toStdString()}
+        };
+        m_runtime->sendCustomMessage(j.dump());
+    }
+}
+
+/* ------------------------------------------------------------------
+ *  A user edited the “Variables” table
+ * ----------------------------------------------------------------*/
+void MainWindow::handleVariableCellChanged(int row, int column)
+{
+    if (column != 1) return;          // only the value column matters
+
+    QString name  = ui->tableVariables->item(row, 0)->text();
+    QString value = ui->tableVariables->item(row, 1)->text();
+
     bool isVariable = std::any_of(m_doc.variables.begin(), m_doc.variables.end(),
-                                [&name](const auto& v) {
-                                    return QString::fromStdString(v.name) == name;
-                                });
-    
-    if (isVariable) {
-        // Send a setVar message to update the variable in the runtime
-        if (m_runtime) {
-            // Using the existing channel in RuntimeClient to send a custom message
-            nlohmann::json j = {
-                {"type", "setVar"},
-                {"name", name.toStdString()},
-                {"value", value.toStdString()}
-            };
-            m_runtime->sendCustomMessage(j.dump());
-        }
-    } else {
-        // Regular input injection
-        if (m_runtime) m_runtime->inject(name, value);
+                                  [&name](const auto& v){
+                                      return QString::fromStdString(v.name) == name;
+                                  });
+
+    if (m_runtime) {
+        nlohmann::json j = {
+            {"type",  isVariable ? "setVar" : "inject"},
+            {"name",  name.toStdString()},
+            {"value", value.toStdString()}
+        };
+        m_runtime->sendCustomMessage(j.dump());
     }
 }
 
@@ -373,89 +394,152 @@ void MainWindow::on_actionNew_triggered()
     populateProjectTree();   // left‑hand tree
     clearFsmVisualization(); // diagram scene
     ui->labelCurrentState->setText(tr("Current State: -"));
-    ui->tableLastValues ->setRowCount(0);
 }
 
-// … the rest of your slots (connect/inject/build/run) unchanged …
-
-void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
+void MainWindow::handleStateSnapshot(const StateSnapshot& snap)
+{
     if (!m_receivedState) {
         m_receivedState = true;
-        // (optional) stop the timer early to avoid any late pop-up
-        m_reconnectTimer->stop();
+        m_reconnectTimer->stop();   // optional – prevents any late pop‑up
     }
+    // first-ever snapshot: just record state, no arrow yet
+    if (!m_receivedFirstSnapshot) {
+        m_receivedFirstSnapshot = true;
+        m_prevStateId = snap.state.toStdString();
+    }
+    else {
+        std::string from = m_prevStateId;
+        std::string to   = snap.state.toStdString();
+
+        // find which transition in the doc matches
+        for (int i = 0; i < m_doc.transitions.size(); ++i) {
+            const auto &t = m_doc.transitions[i];
+            if (t.from == from && t.to == to) {
+                // flash the corresponding TransitionItem
+                if (i < m_transitionItems.size()) {
+                    m_transitionItems[i]->highlight();
+                }
+                break;
+            }
+        }
+        m_prevStateId = to;
+    }
+    m_lastSnapshot = snap;
+    // now update the tables/diagram as before
     updateMonitor(snap);
 }
 
-void MainWindow::updateMonitor(const StateSnapshot& snap) {
-    // Temporarily block cell-changed signals so our edits here don't fire injections
-    ui->tableLastValues->blockSignals(true);
+void MainWindow::shutdownInterpreterAndChannel()
+{
+    // Gracefully ask the runtime logic to stop
+    if (m_runtime) {
+        m_runtime->shutdown();   // tells the interpreter to exit
+        m_runtime->stop();       // joins the worker thread
+        m_runtime.reset();
+    }
 
-    // Update current state label
-    ui->labelCurrentState->setText(
-        tr("Current State: %1").arg(snap.state)
-    );
+    // Then stop the external process
+    if (m_interpreter) {
+        m_interpreter->terminate();                 // SIGTERM / WM_CLOSE
+        if (!m_interpreter->waitForFinished(3000))  // give it 3 s
+            m_interpreter->kill();                  // hard kill
+        m_interpreter = nullptr;                    // owned by this
+    }
+}
 
-    // Highlight the active state in the diagram
+void MainWindow::closeEvent(QCloseEvent *ev)
+{
+    shutdownInterpreterAndChannel();
+    QMainWindow::closeEvent(ev);   // default cleanup
+}
+
+void MainWindow::updateMonitor(const StateSnapshot& snap)
+{
+    // 1) state label + highlight (unchanged)
+    ui->labelCurrentState->setText(tr("Current State: %1").arg(snap.state));
     std::string current = snap.state.toStdString();
-    for (auto id : m_stateItems.keys()) {
-        auto *item = m_stateItems[id];
-        item->setBrush(id == current ? QBrush(Qt::lightGray)
-                                     : QBrush(Qt::white));
-    }
+    for (auto id : m_stateItems.keys())
+        m_stateItems[id]->setBrush(id == current ? QBrush(Qt::lightGray)
+                                                 : QBrush(Qt::white));
 
-    // 1) Build a fresh map of just the real inputs (drop vars from inputs)
+    // ── prune inputs that are also variables ──
     QMap<QString,QString> inputs = snap.inputs;
-    for (auto const& v : m_doc.variables) {
+    for (auto const& v : m_doc.variables)
         inputs.remove(QString::fromStdString(v.name));
+
+    int row;
+
+    // ------------------------------------------------------------------
+    //  INPUTS  (name=read-only, value=editable, + Send button)
+    // ------------------------------------------------------------------
+    ui->tableInputs->blockSignals(true);
+    ui->tableInputs->clearContents();
+    ui->tableInputs->setRowCount(inputs.size());
+    row = 0;
+    for (auto it = inputs.cbegin(); it != inputs.cend(); ++it, ++row) {
+        // name cell
+        auto *n = new QTableWidgetItem(it.key());
+        n->setFlags(n->flags() & ~Qt::ItemIsEditable);
+        ui->tableInputs->setItem(row, 0, n);
+
+        // value cell
+        auto *v = new QTableWidgetItem(it.value());
+        v->setFlags(v->flags() | Qt::ItemIsEditable);
+        ui->tableInputs->setItem(row, 1, v);
+
+        // Send button
+        auto *btn = new QPushButton(tr("Send"));
+        ui->tableInputs->setCellWidget(row, 2, btn);
+
+        // wire the button to send whatever’s in “value”
+        connect(btn, &QPushButton::clicked, this, [this, row]() {
+            QString name  = ui->tableInputs->item(row, 0)->text();
+            QString value = ui->tableInputs->item(row, 1)->text();
+            if (m_runtime) {
+                nlohmann::json j = {
+                    {"type",  "inject"},
+                    {"name",  name.toStdString()},
+                    {"value", value.toStdString()}
+                };
+                m_runtime->sendCustomMessage(j.dump());
+            }
+        });
     }
+    ui->tableInputs->blockSignals(false);
 
-    // 2) Compute total rows: inputs + vars + outputs
-    int rows = inputs.size() 
-             + snap.vars.size() 
-             + snap.outputs.size();
-    ui->tableLastValues->clearContents();
-    ui->tableLastValues->setRowCount(rows);
-
-    int row = 0;
-
-    // 3) Fill inputs (non-editable)
-    for (auto it = inputs.constBegin(); it != inputs.constEnd(); ++it, ++row) {
-        auto *name = new QTableWidgetItem(it.key());
-        auto *val  = new QTableWidgetItem(it.value());
-        name->setFlags(name->flags() & ~Qt::ItemIsEditable);
-        val ->setFlags(val ->flags() & ~Qt::ItemIsEditable);
-        ui->tableLastValues->setItem(row, 0, name);
-        ui->tableLastValues->setItem(row, 1, val );
+    // ------------------------------------------------------------------
+    //  VARIABLES  (completely read-only, no special coloring)
+    // ------------------------------------------------------------------
+    ui->tableVariables->blockSignals(true);
+    ui->tableVariables->clearContents();
+    ui->tableVariables->setRowCount(snap.vars.size());
+    row = 0;
+    for (auto it = snap.vars.cbegin(); it != snap.vars.cend(); ++it, ++row) {
+        auto *n = new QTableWidgetItem(it.key());
+        auto *v = new QTableWidgetItem(it.value());
+        n->setFlags(n->flags() & ~Qt::ItemIsEditable);
+        v->setFlags(v->flags() & ~Qt::ItemIsEditable);
+        ui->tableVariables->setItem(row,0,n);
+        ui->tableVariables->setItem(row,1,v);
     }
+    ui->tableVariables->blockSignals(false);
 
-    // 4) Fill variables (editable)
-    for (auto it = snap.vars.constBegin(); it != snap.vars.constEnd(); ++it, ++row) {
-        auto *name = new QTableWidgetItem(it.key());
-        auto *val  = new QTableWidgetItem(it.value());
-        // highlight variables
-        name->setBackground(QBrush(QColor(240,240,255)));
-        val ->setBackground(QBrush(QColor(240,240,255)));
-        // leave them editable
-        ui->tableLastValues->setItem(row, 0, name);
-        ui->tableLastValues->setItem(row, 1, val );
+    // ------------------------------------------------------------------
+    //  OUTPUTS  (read-only, same as before)
+    // ------------------------------------------------------------------
+    ui->tableOutputs->blockSignals(true);
+    ui->tableOutputs->clearContents();
+    ui->tableOutputs->setRowCount(snap.outputs.size());
+    row = 0;
+    for (auto it = snap.outputs.cbegin(); it != snap.outputs.cend(); ++it, ++row) {
+        auto *n = new QTableWidgetItem(it.key());
+        auto *v = new QTableWidgetItem(it.value());
+        n->setFlags(n->flags() & ~Qt::ItemIsEditable);
+        v->setFlags(v->flags() & ~Qt::ItemIsEditable);
+        ui->tableOutputs->setItem(row,0,n);
+        ui->tableOutputs->setItem(row,1,v);
     }
-
-    // 5) Fill outputs (non-editable)
-    for (auto it = snap.outputs.constBegin(); it != snap.outputs.constEnd(); ++it, ++row) {
-        auto *name = new QTableWidgetItem(it.key());
-        auto *val  = new QTableWidgetItem(it.value());
-        name->setFlags(name->flags() & ~Qt::ItemIsEditable);
-        val ->setFlags(val ->flags() & ~Qt::ItemIsEditable);
-        // optional output highlight
-        name->setBackground(QBrush(QColor(240,255,240)));
-        val ->setBackground(QBrush(QColor(240,255,240)));
-        ui->tableLastValues->setItem(row, 0, name);
-        ui->tableLastValues->setItem(row, 1, val );
-    }
-
-    // unblock signals so user edits fire
-    ui->tableLastValues->blockSignals(false);
+    ui->tableOutputs->blockSignals(false);
 }
 
 
@@ -809,32 +893,35 @@ void MainWindow::on_buttonInject_clicked()
     const QString value = ui->lineEditInputValue->text();
     if (name.isEmpty()) return;
 
-    // actually send to runtime…
-    if (m_runtime) m_runtime->inject(name, value);
-
-    // 2) append to table WITHOUT firing cellChanged
-    ui->tableLastValues->blockSignals(true);
-      int row = ui->tableLastValues->rowCount();
-      ui->tableLastValues->insertRow(row);
-      ui->tableLastValues->setItem(row, 0,
-          new QTableWidgetItem(name));
-      ui->tableLastValues->setItem(row, 1,
-          new QTableWidgetItem(value));
-    ui->tableLastValues->blockSignals(false);
-    
-    // Auto-scroll
-    ui->tableLastValues->scrollToBottom();
-    
-    // Highlight previous row
-    if (m_lastRowIndex >= 0) {
-        auto prevName = ui->tableLastValues->item(m_lastRowIndex, 0);
-        auto prevVal  = ui->tableLastValues->item(m_lastRowIndex, 1);
-        if (prevName) prevName->setBackground(QBrush(QColor(230,230,255)));
-        if (prevVal)  prevVal->setBackground(QBrush(QColor(230,230,255)));
+    // — only allow inputs that actually exist in the FSM —
+    bool knownInput = std::any_of(
+        m_doc.inputs.begin(), m_doc.inputs.end(),
+        [&name](const auto& in){ return QString::fromStdString(in) == name; }
+    );
+    if (!knownInput) {
+        m_warningBar->setText(tr("Unknown input “%1”").arg(name));
+        m_warningBar->setVisible(true);
+        return;
     }
-    m_lastRowIndex = row;
+    m_warningBar->clear();
+    m_warningBar->setVisible(false);
+
+    // — send to runtime —
+    if (m_runtime) {
+        nlohmann::json j = {
+            {"type",  "inject"},
+            {"name",  name.toStdString()},
+            {"value", value.toStdString()}
+        };
+        m_runtime->sendCustomMessage(j.dump());
+    }
 
     ui->lineEditInputValue->clear();
+
+    // — immediately update the Inputs table (and hide/clear warnings) —
+    // mirror it locally so updateMonitor will show the new value at once
+    m_lastSnapshot.inputs[name] = value;
+    updateMonitor(m_lastSnapshot);
 }
 
 void MainWindow::on_actionBuildRun_triggered()

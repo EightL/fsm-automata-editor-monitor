@@ -10,6 +10,7 @@
 #include <QBrush>
 #include <QPen>
 #include <QSet>
+#include <QTimer>
 
 class TransitionItem; // Forward declaration
 
@@ -73,12 +74,26 @@ public:
     void setGuard(const QString& guard) { m_guard = guard; }
     void setDelay(const QString& delay) { m_delay = delay; }
 
+    void highlight() {
+        // Make a fat red pen
+        QPen highlightPen = m_normalPen;
+        highlightPen.setColor(Qt::green);
+        highlightPen.setWidth(m_normalPen.width() + 2);
+        setPen(highlightPen);
+        
+        // Revert after 500ms
+        QTimer::singleShot(250, [this]() {
+            setPen(m_normalPen);
+        });
+    }
+
     // Add shape method to the TransitionItem class declaration
     QPainterPath shape() const override;
 
     void setOffsetIndex(int index) { m_offsetIndex = index; }
 
 private:
+    QPen m_normalPen;
     StateItem* m_fromState;
     StateItem* m_toState;
     QString m_trigger;

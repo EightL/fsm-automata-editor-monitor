@@ -116,35 +116,8 @@ void RuntimeClient::pollChannel() {
         snap.vars    = jsonToMap(j.at("vars"));
         snap.outputs = jsonToMap(j.at("outputs"));
         
-        // Add detailed state change logging
-        QString stateChangeLog = QString("STATE CHANGED: %1").arg(snap.state);
-        
-        // Add inputs to log
-        if (!snap.inputs.isEmpty()) {
-            stateChangeLog += "\nInputs:";
-            for (auto it = snap.inputs.constBegin(); it != snap.inputs.constEnd(); ++it) {
-                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
-            }
-        }
-        
-        // Add variables to log
-        if (!snap.vars.isEmpty()) {
-            stateChangeLog += "\nVariables:";
-            for (auto it = snap.vars.constBegin(); it != snap.vars.constEnd(); ++it) {
-                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
-            }
-        }
-        
-        // Add outputs to log
-        if (!snap.outputs.isEmpty()) {
-            stateChangeLog += "\nOutputs:";
-            for (auto it = snap.outputs.constBegin(); it != snap.outputs.constEnd(); ++it) {
-                stateChangeLog += QString("\n  %1 = %2").arg(it.key()).arg(it.value());
-            }
-        }
-        
-        // Emit the log message
-        emit logMessage(stateChangeLog);
+        // Very short transcript – the GUI already shows the details
+        emit logMessage(QString("STATE CHANGED: %1").arg(snap.state));
         emit stateReceived(snap);
     }
 }

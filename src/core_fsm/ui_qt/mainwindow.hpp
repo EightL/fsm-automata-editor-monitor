@@ -49,13 +49,16 @@ private slots:
     void addOutput();
 
     void deleteSelectedItem(const QString& category, int index);
-
+    void closeEvent(QCloseEvent *ev) override;
+    void shutdownInterpreterAndChannel();
     // runtime snapshot
     void handleStateSnapshot(const StateSnapshot& snap);
-
+    void handleInputCellChanged(int row, int column);
     void on_projectTree_itemSelectionChanged();
+    void handleVariableCellChanged(int row, int column);
 
 private:
+    StateSnapshot   m_lastSnapshot;
     Ui::MainWindow*           ui;
     std::unique_ptr<QGraphicsScene> m_scene;
     std::unique_ptr<RuntimeClient>  m_runtime;
@@ -68,7 +71,8 @@ private:
     QLabel* m_warningBar{nullptr};
     // **new**: rebuild the tree
     void populateProjectTree();
-
+    bool        m_receivedFirstSnapshot = false;
+    std::string m_prevStateId;
     // monitor update
     void updateMonitor(const StateSnapshot& snap);
 
@@ -82,7 +86,6 @@ private:
     void layoutFsmElements();
     void layoutNewStateElements(const QSet<QString>& newStateIds);
 
-    void handleTableCellChanged(int row, int column);
     // Add these method declarations if they don't exist:
     bool eventFilter(QObject* obj, QEvent* ev) override;
     void changeEvent(QEvent* e) override;

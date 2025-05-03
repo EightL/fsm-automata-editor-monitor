@@ -138,8 +138,8 @@ StateItem::~StateItem()
 }
 
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
-                          const QString& trigger, const QString& guard,
-                          const QString& delay, int offsetIndex, QGraphicsItem* parent)
+                      const QString& trigger, const QString& guard,
+                      const QString& delay, int offsetIndex, QGraphicsItem* parent)
     : QGraphicsPathItem(parent)
     , m_fromState(fromState), m_toState(toState)
     , m_trigger(trigger), m_guard(guard), m_delay(delay)
@@ -147,18 +147,15 @@ TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState,
 {
     m_font = QFont("Arial", 8);
     setPen(QPen(Qt::black, 1.5));
+    m_normalPen = pen();  // Store the original pen
     setFlags(QGraphicsItem::ItemIsSelectable);
     
     // Register with the states - only if both states exist
     if (m_fromState && m_toState) {
         m_fromState->addOutgoingTransition(this);
         m_toState->addIncomingTransition(this);
-        
-        // DON'T update position here - wait until added to scene
-        // The scene change handler will trigger the position update
     }
 }
-
 QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == QGraphicsItem::ItemSceneHasChanged && scene() && !m_isBeingDestroyed) {

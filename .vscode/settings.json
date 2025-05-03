@@ -95,7 +95,9 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "qcoreapplication": "cpp",
-        "qtimer": "cpp"
+        "qtimer": "cpp",
+        "qcheckbox": "cpp",
+        "qinputdialog": "cpp"
     },
     // Tell CMake Tools where Qt lives
     "cmake.configureSettings": {
