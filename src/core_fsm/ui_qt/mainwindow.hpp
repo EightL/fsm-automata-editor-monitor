@@ -41,7 +41,7 @@ private slots:
     void on_actionSave_triggered();
     void on_actionSaveAs_triggered();
     void on_actionNew_triggered();
-
+    void on_actionBuildRunCompiled_triggered();
     void addState();
     void addTransition();
     void addVariable();

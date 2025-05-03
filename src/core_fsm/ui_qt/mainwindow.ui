@@ -265,11 +265,8 @@
    <addaction name="actionNew"/>
    <addaction name="actionOpen"/>
    <addaction name="actionSave"/>
-   <addaction name="separator"/>
-   <addaction name="actionUndo"/>
-   <addaction name="actionRedo"/>
-   <addaction name="separator"/>
    <addaction name="actionGenerateCode"/>
+   <addaction name="actionBuildRunCompiled"/>
    <addaction name="actionBuildRun"/>
    <addaction name="separator"/>
    <addaction name="actionConnect"/>
@@ -365,6 +362,14 @@
    <property name="toolTip">
     <string>Generate C++ interpreter code</string>
    </property>
+  </action>
+  <action name="actionBuildRunCompiled">
+    <property name="text">
+      <string>Build &amp;&amp; Run (Compiled)</string>
+    </property>
+    <property name="toolTip">
+      <string>Generate, build &amp; launch the compiled FSM</string>
+    </property>
   </action>
   <action name="actionBuildRun">
    <property name="text">

@@ -897,6 +897,53 @@ void MainWindow::on_actionGenerateCode_triggered()
         tr("Generated sources in %1").arg(genDir));
 }
 
+void MainWindow::on_actionBuildRunCompiled_triggered()
+{
+    // ① Generate code (reuse existing slot)
+    on_actionGenerateCode_triggered();
+
+    const QString genDir = QString::fromUtf8(GENERATED_DIR);
+    const QString buildDir = genDir + "/build";
+
+    // ② Run CMake configure
+    QProcess cmake(this);
+    cmake.setWorkingDirectory(genDir);
+    cmake.start("cmake", { "-S", ".", "-B", "build", "-G", "Ninja" });
+    if (!cmake.waitForFinished() || cmake.exitStatus()!=QProcess::NormalExit){
+        QMessageBox::critical(this, tr("CMake error"),
+                              cmake.readAllStandardError());
+        return;
+    }
+
+    // ③ Build
+    QProcess ninja(this);
+    ninja.setWorkingDirectory(buildDir);
+    ninja.start("cmake", { "--build", "." });
+    if (!ninja.waitForFinished() || ninja.exitStatus()!=QProcess::NormalExit){
+        QMessageBox::critical(this, tr("Build failed"),
+                              ninja.readAllStandardError());
+        return;
+    }
+
+    // ④ Launch compiled runtime
+    const QString exe = buildDir + "/" +
+                        QString::fromStdString(m_doc.name) + "_runtime";
+    auto *proc = new QProcess(this);
+    connect(proc, QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
+            proc, &QObject::deleteLater);
+    proc->start(exe, { "0.0.0.0:45454", "127.0.0.1:45455" });
+
+    if (!proc->waitForStarted()){
+        QMessageBox::critical(this, tr("Run failed"),
+                              tr("Could not start “%1”").arg(exe));
+        return;
+    }
+
+    // ⑤ Attach GUI exactly as in the interpreter path
+    on_actionConnect_triggered();
+    m_receivedState = false;
+    m_reconnectTimer->start(1000);
+}
 
 void MainWindow::on_actionBuildRun_triggered()
 {
