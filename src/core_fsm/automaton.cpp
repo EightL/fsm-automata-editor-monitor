@@ -128,15 +128,11 @@ bool Automaton::processImmediateTransitions(const std::string& trigger) {
             if (t.src() == m_active && 
                 t.isTriggered(trigger.empty() ? "" : trigger, guardCtx)) {
                 
-                if (t.isDelayed()) {
-                    scheduler_.arm(i, t.delay());
-                } else {
-                    if (fireTransition(i, trigger)) {
-                        fired = true;
-                        anyFired = true;
-                        break;  // Restart scan since state changed
-                    }
-                }
+                // Always use scheduler with at least 1ms delay for all transitions
+                // This prevents issues with self-transitions while maintaining the
+                // defined behavior for explicitly delayed transitions
+                auto effectiveDelay = t.isDelayed() ? t.delay() : std::chrono::milliseconds(1);
+                scheduler_.arm(i, effectiveDelay);
             }
         }
     } while (fired);
