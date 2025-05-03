@@ -781,15 +781,27 @@ void MainWindow::on_actionConnect_triggered()
 
 void MainWindow::on_actionDisconnect_triggered()
 {
-    if (!m_runtime) return;
-    m_runtime->shutdown();           // ← new public method
-    m_runtime.reset();
+    // 1) tell the runtime client to shut itself down
+    if (m_runtime) {
+        m_runtime->shutdown();
+        m_runtime.reset();
+    }
 
-    ui->actionDisconnect->setEnabled(false);
-    ui->actionConnect   ->setEnabled(true);
-    ui->buttonInject    ->setEnabled(false);
-    ui->labelCurrentState->setText(tr("Current State: -"));
-    ui->tableLastValues ->setRowCount(0);
+    // 2) kill the old process if it’s still around
+    if (m_interpreter) {
+        m_interpreter->terminate();
+        if (!m_interpreter->waitForFinished(500))
+            m_interpreter->kill();
+        m_interpreter->deleteLater();
+        m_interpreter = nullptr;
+    }
+
+    // 3) disable/enable UI actions
+    ui->actionDisconnect      ->setEnabled(false);
+    ui->actionConnect         ->setEnabled(true);
+    ui->buttonInject          ->setEnabled(false);
+    ui->labelCurrentState     ->setText(tr("Current State: -"));
+    ui->tableLastValues       ->setRowCount(0);
 }
 
 void MainWindow::on_buttonInject_clicked()
@@ -888,52 +900,60 @@ void MainWindow::on_actionGenerateCode_triggered()
 
 void MainWindow::on_actionBuildRun_triggered()
 {
-    // If we’ve got any warning up top, refuse to run.
+    // 1) Block if there are semantic errors
     if (m_warningBar->isVisible()) {
-        QMessageBox::warning(
-            this,
-            tr("Cannot Run FSM"),
-            tr("Your FSM JSON has semantic errors:\n%1\n\n"
-                "Please fix them before running.")
-                .arg(m_warningBar->text())
-        );
-        
+        QMessageBox::warning(this, tr("Cannot Run FSM"),
+                             tr("Your FSM JSON has semantic errors:\n%1\n\n"
+                                "Please fix them before running.")
+                             .arg(m_warningBar->text()));
         return;
     }
     m_warningBar->clear();
     m_warningBar->setVisible(false);
-    // Save JSON again, then launch the existing interpreter
+
+    // 2) Save the FSM JSON
     QString tmp = QDir::temp().filePath("current.fsm.json");
-    core_fsm::persistence::saveFile(m_doc,
-                                    tmp.toStdString(),
-                                    /*pretty*/true,
-                                    nullptr);
+    core_fsm::persistence::saveFile(m_doc, tmp.toStdString(), /*pretty*/true, nullptr);
 
-    auto *proc = new QProcess(this);
-    connect(proc,
+    // 3) If there’s still an old runtime, ask it to shut down...
+    if (m_runtime) {
+        m_runtime->shutdown();
+        m_runtime.reset();
+    }
+
+    // 4) And if there’s an old QProcess, terminate/kill it
+    if (m_interpreter) {
+        m_interpreter->terminate();
+        if (!m_interpreter->waitForFinished(500))
+            m_interpreter->kill();
+        m_interpreter->deleteLater();
+        m_interpreter = nullptr;
+    }
+
+    // 5) Launch the fresh interpreter
+    m_interpreter = new QProcess(this);
+    connect(m_interpreter,
             QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
-            proc, &QObject::deleteLater);
+            m_interpreter, &QObject::deleteLater);
 
-    // assume fsm_runtime is next to your UI executable
     QString exe = QCoreApplication::applicationDirPath() + "/fsm_runtime";
-    proc->start(exe, { tmp,
-                       "0.0.0.0:45454",    // interpreter bind
-                       "127.0.0.1:45455"   // GUI listens here
-                     });
-
-    if (!proc->waitForStarted()) {
-        QMessageBox::critical(this,
-            tr("Run Failed"),
-            tr("Could not start “%1”").arg(exe));
-        delete proc;
+    m_interpreter->start(exe, { tmp,
+                                "0.0.0.0:45454",
+                                "127.0.0.1:45455" });
+    if (!m_interpreter->waitForStarted()) {
+        QMessageBox::critical(this, tr("Run Failed"),
+                              tr("Could not start “%1”").arg(exe));
+        m_interpreter->deleteLater();
+        m_interpreter = nullptr;
         return;
     }
 
-    // Auto-connect to fresh instance with timeout
+    // 6) Finally, hook up your GUI to it as before
     on_actionConnect_triggered();
-    m_receivedState = false; 
-    m_reconnectTimer->start(1000);  // wait 1s for first packet
+    m_receivedState = false;
+    m_reconnectTimer->start(1000);
 }
+
 
 void MainWindow::clearFsmVisualization()
 {

@@ -64,7 +64,7 @@ private:
     // **new**: loaded FSM document & path
     core_fsm::persistence::FsmDocument m_doc;
     QString                             m_currentFsmPath;
-
+    QProcess *m_interpreter = nullptr;
     QLabel* m_warningBar{nullptr};
     // **new**: rebuild the tree
     void populateProjectTree();

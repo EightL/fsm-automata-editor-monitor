@@ -53,6 +53,14 @@ void RuntimeClient::setVariable(QString name, QString value) {
     sendCustomMessage(j.dump());
 }
 
+void RuntimeClient::shutdown() {
+    if (!m_channel) return;
+    nlohmann::json j = { {"type","shutdown"} };
+    m_channel->send({ j.dump() });
+    // give the interpreter a moment to exit
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
 void RuntimeClient::onThreadStarted() {
     qDebug() << "⏱  poll timer starting in thread:" << QThread::currentThread();
     // 3) Create a timer to poll the socket ~every 20ms

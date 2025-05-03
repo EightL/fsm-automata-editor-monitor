@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QString>
 #include <QMap>
+#include <QProcess>
 #include <memory>
 #include "../io_bridge/channel.hpp"
 #include "../../../external/nlohmann/json.hpp" // for nlohmann::json
@@ -35,11 +36,7 @@ public:
     /// Call once (from GUI thread) to kick off the polling thread/loop.
     void start();
     
-    void shutdown() {
-        if (!m_channel) return;
-        nlohmann::json j = {{"type","shutdown"}};
-        m_channel->send({ j.dump() });
-    }
+    void shutdown();
     void setVariable(QString name, QString value);
 
     void sendCustomMessage(const std::string& jsonMessage);
