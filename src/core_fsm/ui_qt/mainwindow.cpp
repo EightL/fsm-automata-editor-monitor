@@ -468,6 +468,15 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
     const QString category = parent->text(0);
     const int index = parent->indexOfChild(it);
 
+    // Add delete button at the bottom of form for all items
+    QPushButton* deleteButton = new QPushButton(tr("Delete"));
+    deleteButton->setIcon(QIcon::fromTheme("edit-delete"));
+    deleteButton->setStyleSheet("background-color: #ffaaaa; font-weight: bold;");
+    
+    connect(deleteButton, &QPushButton::clicked, this, [this, category, index]() {
+        deleteSelectedItem(category, index);
+    });
+
     // — Inputs / Outputs: just a single name field
     if (category == tr("Inputs") || category == tr("Outputs")) {
         auto *edit = new QLineEdit(it->text(0));
@@ -482,6 +491,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             else
                 m_doc.outputs[index] = newName.toStdString();
         });
+
+        // Add delete button at the end
+        ui->formProperties->addRow("", deleteButton);
         return;
     }
 
@@ -508,6 +520,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
                           + " = " 
                           + QString::fromStdString(m_doc.variables[index].init.dump()));
         });
+
+        // Add delete button at the end
+        ui->formProperties->addRow("", deleteButton);
         return;
     }
 
@@ -583,6 +598,8 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
               ui->codeEditor->toPlainText().toStdString();
         });
         
+        // Add delete button at the end
+        ui->formProperties->addRow("", deleteButton);
         return;
     }
 
@@ -667,8 +684,79 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             item->updatePosition();
         }
 
+        // Add delete button at the end
+        ui->formProperties->addRow("", deleteButton);
         return;
     }
+}
+
+void MainWindow::deleteSelectedItem(const QString& category, int index) {
+    // Confirm deletion
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, 
+        tr("Confirm Deletion"),
+        tr("Are you sure you want to delete this %1?").arg(category.toLower()),
+        QMessageBox::Yes | QMessageBox::No
+    );
+    
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+    
+    // Handle deletion based on item type
+    if (category == tr("Inputs")) {
+        // Delete input
+        if (index >= 0 && index < m_doc.inputs.size()) {
+            m_doc.inputs.erase(m_doc.inputs.begin() + index);
+        }
+    }
+    else if (category == tr("Outputs")) {
+        // Delete output
+        if (index >= 0 && index < m_doc.outputs.size()) {
+            m_doc.outputs.erase(m_doc.outputs.begin() + index);
+        }
+    }
+    else if (category == tr("Variables")) {
+        // Delete variable
+        if (index >= 0 && index < m_doc.variables.size()) {
+            m_doc.variables.erase(m_doc.variables.begin() + index);
+        }
+    }
+    else if (category == tr("States")) {
+        // Delete state and all associated transitions
+        if (index >= 0 && index < m_doc.states.size()) {
+            std::string stateId = m_doc.states[index].id;
+            
+            // First remove all transitions connected to this state
+            auto it = m_doc.transitions.begin();
+            while (it != m_doc.transitions.end()) {
+                if (it->from == stateId || it->to == stateId) {
+                    it = m_doc.transitions.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            
+            // Then remove the state
+            m_doc.states.erase(m_doc.states.begin() + index);
+            
+            // Update visualization
+            visualizeFsm();
+        }
+    }
+    else if (category == tr("Transitions")) {
+        // Delete transition
+        if (index >= 0 && index < m_doc.transitions.size()) {
+            m_doc.transitions.erase(m_doc.transitions.begin() + index);
+            
+            // Update visualization
+            visualizeFsm();
+        }
+    }
+    
+    // Update UI
+    populateProjectTree();
+    clearPropertyEditor();
 }
 
 // -----------------------------------------------------------------------------

@@ -48,6 +48,8 @@ private slots:
     void addInput();
     void addOutput();
 
+    void deleteSelectedItem(const QString& category, int index);
+
     // runtime snapshot
     void handleStateSnapshot(const StateSnapshot& snap);
 
