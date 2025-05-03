@@ -613,7 +613,20 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         auto *initEdit = new QLineEdit(QString::fromStdString(m_doc.variables[index].init.dump()));
         ui->formProperties->addRow(tr("Initial:"), initEdit);
         connect(initEdit, &QLineEdit::editingFinished, this, [this, index, it, initEdit]() {
-            m_doc.variables[index].init = nlohmann::json::parse(initEdit->text().toStdString(), nullptr, false);
+            QString valueText = initEdit->text().trimmed();
+            try {
+                if (valueText.isEmpty()) {
+                    m_doc.variables[index].init = 0;  // Default to 0 for empty values
+                } else {
+                    m_doc.variables[index].init = nlohmann::json::parse(valueText.toStdString(), nullptr, false);
+                }
+            } catch (...) {
+                if (valueText.isEmpty()) {
+                    m_doc.variables[index].init = 0;  // Default to 0 for empty values
+                } else {
+                    m_doc.variables[index].init = valueText.toStdString();
+                }
+            }
             it->setText(0, QString::fromStdString(m_doc.variables[index].name) 
                           + " = " 
                           + QString::fromStdString(m_doc.variables[index].init.dump()));
@@ -738,10 +751,29 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         });
 
         // delay (as JSON)
-        auto *delayEdit = new QLineEdit(QString::fromStdString(trn.delay_ms.dump()));
+        QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
+        delayEdit->setPlaceholderText(tr("Leave empty for null"));
         ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
         connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit, updateTransitionLabel]() {
-            m_doc.transitions[index].delay_ms = nlohmann::json::parse(delayEdit->text().toStdString(), nullptr, false);
+            QString delayText = delayEdit->text().trimmed();
+            if (delayText.isEmpty()) {
+                // Set to null if empty
+                m_doc.transitions[index].delay_ms = nullptr;
+            } else {
+                try {
+                    m_doc.transitions[index].delay_ms = nlohmann::json::parse(delayText.toStdString());
+                } catch (...) {
+                    // If not valid JSON, try to convert to integer
+                    bool ok;
+                    int delay = delayText.toInt(&ok);
+                    if (ok) {
+                        m_doc.transitions[index].delay_ms = delay;
+                    } else {
+                        // Treat as a variable reference (string)
+                        m_doc.transitions[index].delay_ms = delayText.toStdString();
+                    }
+                }
+            }
             updateTransitionLabel();
         });
 
@@ -1342,7 +1374,8 @@ void MainWindow::addTransition()
     form->addRow(tr("Guard:"), guardEdit);
     
     // Delay field
-    QLineEdit* delayEdit = new QLineEdit("0");
+    QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
+    delayEdit->setPlaceholderText(tr("Leave empty for null"));
     form->addRow(tr("Delay (ms or var):"), delayEdit);
     
     // Dialog buttons
@@ -1366,17 +1399,22 @@ void MainWindow::addTransition()
     
     // Parse delay - handle both numeric and variable references
     QString delayText = delayEdit->text().trimmed();
-    try {
-        newTransition.delay_ms = nlohmann::json::parse(delayText.toStdString());
-    } catch (...) {
-        // If not valid JSON, try to convert to integer
-        bool ok;
-        int delay = delayText.toInt(&ok);
-        if (ok) {
-            newTransition.delay_ms = delay;
-        } else {
-            // Treat as a variable reference (string)
-            newTransition.delay_ms = delayText.toStdString();
+    if (delayText.isEmpty()) {
+        // Set to null if empty
+        newTransition.delay_ms = nullptr;
+    } else {
+        try {
+            newTransition.delay_ms = nlohmann::json::parse(delayText.toStdString());
+        } catch (...) {
+            // If not valid JSON, try to convert to integer
+            bool ok;
+            int delay = delayText.toInt(&ok);
+            if (ok) {
+                newTransition.delay_ms = delay;
+            } else {
+                // Treat as a variable reference (string)
+                newTransition.delay_ms = delayText.toStdString();
+            }
         }
     }
     
@@ -1476,10 +1514,20 @@ void MainWindow::addVariable()
     
     // Parse initial value
     try {
-        newVar.init = nlohmann::json::parse(initEdit->text().toStdString(), nullptr, false);
+        QString initValue = initEdit->text().trimmed();
+        if (initValue.isEmpty()) {
+            newVar.init = 0;  // Default to 0 for empty values
+        } else {
+            newVar.init = nlohmann::json::parse(initValue.toStdString(), nullptr, false);
+        }
     } catch (...) {
         // If parsing fails, use the raw text as a string value
-        newVar.init = initEdit->text().toStdString();
+        QString initValue = initEdit->text().trimmed();
+        if (initValue.isEmpty()) {
+            newVar.init = 0;  // Default to 0 for empty values
+        } else {
+            newVar.init = initValue.toStdString();
+        }
     }
     
     // Add the variable
