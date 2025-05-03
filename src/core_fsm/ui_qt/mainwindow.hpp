@@ -35,7 +35,6 @@ private slots:
     void on_actionConnect_triggered();
     void on_actionDisconnect_triggered();
     void on_buttonInject_clicked();
-    void on_actionGenerateCode_triggered();
     void on_actionBuildRun_triggered();
 
     // **new** file I/O slots
@@ -43,7 +42,6 @@ private slots:
     void on_actionSave_triggered();
     void on_actionSaveAs_triggered();
     void on_actionNew_triggered();
-    void on_actionBuildRunCompiled_triggered();
     void addState();
     void addTransition();
     void addVariable();

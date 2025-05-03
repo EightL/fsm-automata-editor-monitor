@@ -23,6 +23,16 @@ RuntimeClient::~RuntimeClient() {
     }
 }
 
+void RuntimeClient::stop()
+{
+    if (m_thread) {
+        m_thread->quit();
+        m_thread->wait();
+    }
+    m_channel.reset();           // closes socket (dtor of UdpChannel)
+    m_thread = nullptr;
+}
+
 void RuntimeClient::start() {
     // 1) Create the UDP channel on caller thread
     m_channel = std::make_shared<UdpChannel>(

@@ -20,6 +20,10 @@ UdpChannel::UdpChannel(const std::string &bindAddr, const std::string &peerAddr)
     // create socket
     m_sock = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (m_sock < 0) return;
+    {
+        int opt = 1;
+        ::setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    }
     // non-blocking
     fcntl(m_sock, F_SETFL, O_NONBLOCK);
     // bind

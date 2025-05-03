@@ -58,8 +58,6 @@ target_link_libraries(ui_qt_client
 # — propagate codegen info into every TU of the GUI lib ————————
 target_compile_definitions(ui_qt_client
   PUBLIC
-    CODEGEN_EXE="$<TARGET_FILE:fsm_codegen>"
-    GENERATED_DIR="${CMAKE_BINARY_DIR}/generated"
     SRC_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/src/codegen/templates"
 )
 
@@ -74,10 +72,5 @@ target_link_libraries(ui_qt_client_exec PRIVATE
   Qt5::Qml   # ← and here
 )
 
-# (optional) still define for the exe if you need them PRIVATE too
-target_compile_definitions(ui_qt_client_exec PRIVATE
-  CODEGEN_EXE="$<TARGET_FILE:fsm_codegen>"
-  GENERATED_DIR="${CMAKE_BINARY_DIR}/generated"
-)
 
 install(TARGETS ui_qt_client_exec RUNTIME DESTINATION bin)

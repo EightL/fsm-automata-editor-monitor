@@ -376,7 +376,7 @@ void MainWindow::on_actionNew_triggered()
     ui->tableLastValues ->setRowCount(0);
 }
 
-// … the rest of your slots (connect/inject/generate/build/run) unchanged …
+// … the rest of your slots (connect/inject/build/run) unchanged …
 
 void MainWindow::handleStateSnapshot(const StateSnapshot& snap) {
     if (!m_receivedState) {
@@ -793,25 +793,14 @@ void MainWindow::on_actionDisconnect_triggered()
 {
     // 1) tell the runtime client to shut itself down
     if (m_runtime) {
-        m_runtime->shutdown();
+        m_runtime->stop();
         m_runtime.reset();
     }
 
-    // 2) kill the old process if it’s still around
-    if (m_interpreter) {
-        m_interpreter->terminate();
-        if (!m_interpreter->waitForFinished(500))
-            m_interpreter->kill();
-        m_interpreter->deleteLater();
-        m_interpreter = nullptr;
-    }
-
-    // 3) disable/enable UI actions
-    ui->actionDisconnect      ->setEnabled(false);
-    ui->actionConnect         ->setEnabled(true);
-    ui->buttonInject          ->setEnabled(false);
-    ui->labelCurrentState     ->setText(tr("Current State: -"));
-    ui->tableLastValues       ->setRowCount(0);
+    // (we no longer kill the interpreter—only the channel)
+    ui->actionDisconnect ->setEnabled(false);
+    ui->actionConnect    ->setEnabled(true);
+    ui->buttonInject     ->setEnabled(false);
 }
 
 void MainWindow::on_buttonInject_clicked()
@@ -846,113 +835,6 @@ void MainWindow::on_buttonInject_clicked()
     m_lastRowIndex = row;
 
     ui->lineEditInputValue->clear();
-}
-
-
-
-void MainWindow::on_actionGenerateCode_triggered()
-{
-    // 1) dump current FSM to a temp JSON
-    QString tmpJson = QDir::temp().filePath("current.fsm.json");
-    core_fsm::persistence::saveFile(m_doc,
-        tmpJson.toStdString(), true, nullptr);
-
-    // 2) ensure the CMake‐generated folder exists
-    QString genDir = QString::fromUtf8((GENERATED_DIR));
-    QDir().mkpath(genDir);
-
-    // 3) pick up the codegen program
-    QString program = QString::fromUtf8((CODEGEN_EXE));
-
-    // 4) sanity-check it
-    QFileInfo fi(program);
-    if (!fi.exists() || !(fi.permissions() & QFileDevice::ExeUser)) {
-        QMessageBox::critical(this,
-            tr("Generation Error"),
-            tr("Codegen not found or not executable:\n%1").arg(program));
-        return;
-    }
-
-    // 5) spawn it
-    QProcess proc(this);
-    proc.setProgram(program);
-    proc.setArguments({ tmpJson, genDir,
-                        /* if you still need templates from source dir: */
-                        QStringLiteral(SRC_TEMPLATE_DIR) 
-                      });
-
-    proc.start();
-    printf("Codegen: %s %s\n", program.toStdString().c_str(),
-           genDir.toStdString().c_str());
-    printf("argumetns: %s\n", proc.arguments().join(" ").toStdString().c_str());
-    if (!proc.waitForStarted(2000)) {
-        QMessageBox::critical(this,
-            tr("Generation Error"),
-            tr("Could not start %1:\n%2")
-              .arg(program, proc.errorString()));
-        return;
-    }
-    if (!proc.waitForFinished()) {
-        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
-        QMessageBox::critical(this,
-            tr("Generation Failed"),
-            tr("Codegen failed:\n%1").arg(err.isEmpty()
-                                        ? proc.errorString()
-                                        : err));
-        return;
-    }
-
-    QMessageBox::information(this,
-        tr("Done"),
-        tr("Generated sources in %1").arg(genDir));
-}
-
-void MainWindow::on_actionBuildRunCompiled_triggered()
-{
-    // ① Generate code (reuse existing slot)
-    on_actionGenerateCode_triggered();
-
-    const QString genDir = QString::fromUtf8(GENERATED_DIR);
-    const QString buildDir = genDir + "/build";
-
-    // ② Run CMake configure
-    QProcess cmake(this);
-    cmake.setWorkingDirectory(genDir);
-    cmake.start("cmake", { "-S", ".", "-B", "build", "-G", "Ninja" });
-    if (!cmake.waitForFinished() || cmake.exitStatus()!=QProcess::NormalExit){
-        QMessageBox::critical(this, tr("CMake error"),
-                              cmake.readAllStandardError());
-        return;
-    }
-
-    // ③ Build
-    QProcess ninja(this);
-    ninja.setWorkingDirectory(buildDir);
-    ninja.start("cmake", { "--build", "." });
-    if (!ninja.waitForFinished() || ninja.exitStatus()!=QProcess::NormalExit){
-        QMessageBox::critical(this, tr("Build failed"),
-                              ninja.readAllStandardError());
-        return;
-    }
-
-    // ④ Launch compiled runtime
-    const QString exe = buildDir + "/" +
-                        QString::fromStdString(m_doc.name) + "_runtime";
-    auto *proc = new QProcess(this);
-    connect(proc, QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
-            proc, &QObject::deleteLater);
-    proc->start(exe, { "0.0.0.0:45454", "127.0.0.1:45455" });
-
-    if (!proc->waitForStarted()){
-        QMessageBox::critical(this, tr("Run failed"),
-                              tr("Could not start “%1”").arg(exe));
-        return;
-    }
-
-    // ⑤ Attach GUI exactly as in the interpreter path
-    on_actionConnect_triggered();
-    m_receivedState = false;
-    m_reconnectTimer->start(1000);
 }
 
 void MainWindow::on_actionBuildRun_triggered()

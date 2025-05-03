@@ -35,7 +35,7 @@ public:
 
     /// Call once (from GUI thread) to kick off the polling thread/loop.
     void start();
-    
+    void stop();
     void shutdown();
     void setVariable(QString name, QString value);
 
