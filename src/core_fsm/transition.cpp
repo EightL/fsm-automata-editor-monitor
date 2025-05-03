@@ -13,10 +13,33 @@ namespace {
         static bool initialized = false;
         static QJSEngine e;
         if (!initialized) {
+            /*  Helper functions that will be visible from every guard.
+                -------------------------------------------------------
+                • valueof(name)  – returns **last known value** of an input
+                                  OR of a variable (inputs shadow variables).
+                • defined(name)  – true when the symbol is present either in
+                                  inputs **or** variables.
+                • atoi(s)        – convenience wrapper around parseInt.
+            */
             e.evaluate(R"(
-                function valueof(name) { return ctx.inputs[name] || ""; }
-                function defined(name)  { return ctx.vars[name] !== undefined; }
-                function atoi(s)        { return parseInt(s, 10); }
+                function valueof(name)
+                {
+                    if (Object.prototype.hasOwnProperty.call(ctx.inputs, name))
+                        return String(ctx.inputs[name]);   // any JS primitive → str
+
+                    if (Object.prototype.hasOwnProperty.call(ctx.vars, name))
+                        return String(ctx.vars[name]);
+
+                    return "";                             // unknown → empty str
+                }
+
+                function defined(name)
+                {
+                    return Object.prototype.hasOwnProperty.call(ctx.inputs, name) ||
+                           Object.prototype.hasOwnProperty.call(ctx.vars,   name);
+                }
+
+                function atoi(s) { return parseInt(s, 10); }
             )");
             initialized = true;
         }

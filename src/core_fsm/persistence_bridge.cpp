@@ -6,24 +6,11 @@ namespace core_fsm::persistence {
 
 using namespace std::chrono_literals;
 
-// std::chrono::milliseconds 
-// parseDelay(nlohmann::json const& j, core_fsm::VarMap const& vars)
-// {
-//     if (j.is_null()) return 0ms;
-//     if (j.is_number_integer()) return std::chrono::milliseconds{j.get<int>()};
-//     if (j.is_string()) {
-//         auto it = vars.find(j.get<std::string>());
-//         if (it != vars.end() && std::holds_alternative<int>(it->second))
-//             return std::chrono::milliseconds{std::get<int>(it->second)};
-//         throw std::runtime_error("delay_ms refers to unknown/int variable");
-//     }
-//     throw std::runtime_error("delay_ms must be int or string");
-// }
-
 bool loadFile(const std::string& path,
               FsmDocument& out,
-              std::string* err) 
+              std::string* err)
 {
+    // 1) Open & parse JSON
     std::ifstream in(path);
     if (!in.is_open()) {
         if (err) *err = "Failed to open file: " + path;
@@ -40,19 +27,31 @@ bool loadFile(const std::string& path,
     }
 
     // ─── SANITY CHECKS → WARNINGS ───
-    // Capture the first warning, but don't abort.
     std::string warning;
+
+    // collect declared inputs
     auto inputs = j["inputs"].get<std::vector<std::string>>();
-    auto is_input = [&](const std::string& s){
-      return std::find(inputs.begin(), inputs.end(), s) != inputs.end();
+
+    // collect declared variables by name
+    std::vector<std::string> variables;
+    for (auto const& v : j["variables"]) {
+        variables.push_back(v["name"].get<std::string>());
+    }
+
+    auto is_input = [&](const std::string& s) {
+        return std::find(inputs.begin(), inputs.end(), s) != inputs.end();
+    };
+    auto is_symbol = [&](const std::string& s) {
+        return is_input(s)
+            || std::find(variables.begin(), variables.end(), s)
+                  != variables.end();
     };
 
     for (auto& t : j["transitions"]) {
-        if (!warning.empty())
-            break;               // only capture the first warning
+        if (!warning.empty()) break;
 
-        std::string trig  = t.value("trigger", "");
-        std::string guard = t.value("guard", "");
+        auto trig  = t.value("trigger", std::string{});
+        auto guard = t.value("guard",   std::string{});
 
         if (!guard.empty() && trig.empty()) {
             warning = "Transition `" +
@@ -61,6 +60,7 @@ bool loadFile(const std::string& path,
                       "` has a guard but no trigger.";
             break;
         }
+
         if (!trig.empty() && !is_input(trig)) {
             warning = "Unknown trigger `" + trig +
                       "` in transition `" +
@@ -70,44 +70,46 @@ bool loadFile(const std::string& path,
             break;
         }
 
-        std::regex vo_re(R"(valueof\(\"([^\"]+)\"\))");
+        // look for valueof("...") usages
+        static const std::regex vo_re(R"(valueof\(\"([^\"]+)\"\))");
         std::smatch m;
-        if (std::regex_search(guard, m, vo_re)
-            && !is_input(m[1].str()))
-        {
+        if (std::regex_search(guard, m, vo_re) && !is_symbol(m[1].str())) {
             warning = "Guard in transition `" +
                       t["from"].get<std::string>() + "`→`" +
                       t["to"].get<std::string>() +
-                      "` references unknown input `" +
-                      m[1].str() + "`.";
+                      "` references unknown symbol `" +
+                      m[1].str() + "`; must be one of: " +
+                      j["inputs"].dump() + " or " +
+                      j["variables"].dump();
             break;
         }
     }
     // ─── END SANITY CHECKS ───
 
-    // Always build the document, even if warning is set:
+    // 2) Map JSON → FsmDocument (may throw on schema errors)
     try {
         out = j.get<FsmDocument>();
     }
     catch (const std::exception& e) {
         if (err) *err = std::string("FSM schema error: ") + e.what();
-        return false;  // only bail if the JSON can't map into your DTO
+        return false;
     }
 
-    // If we saw a warning, return true _and_ hand it back:
+    // 3) If we saw a warning, return it (but still succeeded)
     if (!warning.empty()) {
         if (err) *err = std::move(warning);
         return true;
     }
 
-    // No warnings → clean load
+    // 4) Clean load
     return true;
 }
 
 bool saveFile(const FsmDocument& doc,
               const std::string& path,
               bool pretty,
-              std::string* err) {
+              std::string* err)
+{
     std::ofstream out(path);
     if (!out.is_open()) {
         if (err) *err = "Failed to open file for writing: " + path;
@@ -118,9 +120,10 @@ bool saveFile(const FsmDocument& doc,
         if (pretty) {
             out << j.dump(4) << '\n';
         } else {
-            out << j.dump() << '\n';
+            out << j.dump()   << '\n';
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         if (err) *err = e.what();
         return false;
     }

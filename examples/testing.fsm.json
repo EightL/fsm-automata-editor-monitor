@@ -71,12 +71,15 @@
             "from": "NOTAPRINT",
             "to": "NOTAPRINT",
             "trigger": "in",
-            "guard": "atoi(valueof(\"in\")) == 1"
+            "guard": "atoi(valueof(\"in\")) == 1",
+            "delay_ms": 10
         },
         {
             "from": "PRINT",
             "to": "PRINT",
-            "trigger": "in2"
+            "trigger": "in2",
+            "guard": "atoi(valueof(\"in2\"))==1",
+            "delay_ms": 0
         }
     ]
 }

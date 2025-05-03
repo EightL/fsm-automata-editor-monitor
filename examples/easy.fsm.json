@@ -4,16 +4,27 @@
     "inputs": [
         "in1",
         "in2",
-        "in3"
+        "in3",
+        "in4"
     ],
     "outputs": [
         "out"
     ],
     "variables": [
         {
-            "name": "timeout",
+            "name": "time",
             "type": "",
-            "init": 500
+            "init": 3000
+        },
+        {
+            "name": "temp",
+            "type": "",
+            "init": 51
+        },
+        {
+            "name": "mode",
+            "type": "",
+            "init": 1
         }
     ],
     "states": [
@@ -26,6 +37,9 @@
         },
         {
             "id": "3"
+        },
+        {
+            "id": "4"
         }
     ],
     "transitions": [
@@ -34,21 +48,49 @@
             "to": "2",
             "trigger": "in1",
             "guard": "atoi(valueof(\"in1\"))==0",
-            "delay_ms": 1000
+            "delay_ms": 10
         },
         {
             "from": "2",
             "to": "3",
             "trigger": "in2",
             "guard": "atoi(valueof(\"in2\"))==0",
-            "delay_ms": "timeout"
+            "delay_ms": 200
         },
         {
             "from": "3",
             "to": "1",
             "trigger": "in3",
             "guard": "atoi(valueof(\"in3\"))==1",
-            "delay_ms": "timeout"
+            "delay_ms": "time"
+        },
+        {
+            "from": "2",
+            "to": "4",
+            "trigger": "in2",
+            "guard": "atoi(valueof(\"in2\"))==1",
+            "delay_ms": 20
+        },
+        {
+            "from": "4",
+            "to": "4",
+            "trigger": "in4",
+            "guard": "atoi(valueof(\"in4\"))==0",
+            "delay_ms": 100
+        },
+        {
+            "from": "4",
+            "to": "2",
+            "trigger": "in4",
+            "guard": "atoi(valueof(\"in4\"))==2",
+            "delay_ms": 500
+        },
+        {
+            "from": "1",
+            "to": "4",
+            "trigger": "in1",
+            "guard": "parseInt(valueof(\"in1\"),10) == 1 \r\n  && valueof(\"mode\") == \"automatic\"",
+            "delay_ms": 0
         }
     ]
 }
