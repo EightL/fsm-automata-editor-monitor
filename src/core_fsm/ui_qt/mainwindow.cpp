@@ -1005,12 +1005,20 @@ void MainWindow::visualizeFsm()
     // Process any pending position changes
     QApplication::processEvents();
     
+    // Track transitions between each state pair to assign offset indices
+    QMap<QPair<std::string, std::string>, int> transitionCounts;
+    
     // Now create transitions
     for (const auto& transition : m_doc.transitions) {
         // Skip invalid transitions
         if (!m_stateItems.contains(transition.from) || !m_stateItems.contains(transition.to)) {
             continue;
         }
+        
+        // Get or create offset index for this state pair
+        QPair<std::string, std::string> statePair(transition.from, transition.to);
+        int offsetIndex = transitionCounts.value(statePair, 0);
+        transitionCounts[statePair] = offsetIndex + 1;
         
         QString delayText;
         if (!transition.delay_ms.is_null()) {
@@ -1031,7 +1039,8 @@ void MainWindow::visualizeFsm()
                 fromState, toState,
                 QString::fromStdString(transition.trigger),
                 QString::fromStdString(transition.guard),
-                delayText
+                delayText,
+                offsetIndex
             );
             
             m_scene->addItem(item);
