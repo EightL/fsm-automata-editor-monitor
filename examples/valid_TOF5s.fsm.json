@@ -1,0 +1,56 @@
+{
+    "name": "",
+    "comment": "",
+    "inputs": [
+        "in"
+    ],
+    "outputs": [
+        "out"
+    ],
+    "variables": [
+        {
+            "name": "timeout",
+            "type": "",
+            "init": 5000
+        }
+    ],
+    "states": [
+        {
+            "id": "IDLE",
+            "initial": true,
+            "onEnter": "output(\"out\", 0)"
+        },
+        {
+            "id": "ACTIVE",
+            "onEnter": "output(\"out\", 1)"
+        },
+        {
+            "id": "TIMING"
+        }
+    ],
+    "transitions": [
+        {
+            "from": "IDLE",
+            "to": "ACTIVE",
+            "trigger": "in",
+            "guard": "atoi(valueof(\"in\"))==1"
+        },
+        {
+            "from": "ACTIVE",
+            "to": "TIMING",
+            "trigger": "in",
+            "guard": "atoi(valueof(\"in\"))==0"
+        },
+        {
+            "from": "TIMING",
+            "to": "ACTIVE",
+            "trigger": "in",
+            "guard": "atoi(valueof(\"in\"))==1"
+        },
+        {
+            "from": "TIMING",
+            "to": "IDLE",
+            "delay_ms": "timeout"
+        }
+    ]
+}
