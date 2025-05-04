@@ -1,7 +1,7 @@
 {
     "files.associations": {
-        "*.css": "tailwindcss",
         "*.tsx": "typescriptreact",
+        "*.css": "tailwindcss",
         "vector": "cpp",
         "__node_handle": "cpp",
         "optional": "cpp",
@@ -97,7 +97,8 @@
         "qcoreapplication": "cpp",
         "qtimer": "cpp",
         "qcheckbox": "cpp",
-        "qinputdialog": "cpp"
+        "qinputdialog": "cpp",
+        "__config": "cpp"
     },
     // Tell CMake Tools where Qt lives
     "cmake.configureSettings": {

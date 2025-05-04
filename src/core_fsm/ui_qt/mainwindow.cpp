@@ -53,7 +53,6 @@ MainWindow::MainWindow(QWidget* parent)
     ui->codeEditor->setStyleSheet(
         "background-color: #fff; "
         "color: #000; "
-        "font-family: monospace; "
         "border: 1px solid #ccc; "
         "padding: 5px;"
     );

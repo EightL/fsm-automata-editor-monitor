@@ -32,18 +32,24 @@ void bindCtx(QJSEngine& eng, Context& ctx) {
 
     // -- vars: export ints/doubles/bools as *real* JS primitives
     QJSValue varObj = eng.newObject();
-    for (const auto& [k, var] : ctx.vars) {
-        std::visit([&](auto&& x){
+    // Don’t destructure — just grab the pair:
+    for (const auto& kv : ctx.vars) {
+        const auto& key = kv.first;    // a normal variable, not a structured binding
+        const auto& var = kv.second;
+    
+        // compute the name once
+        QString qname = QString::fromStdString(key);
+    
+        // now the lambda doesn’t need to capture `key` at all:
+        std::visit([&varObj, &qname](auto&& x){
             using T = std::decay_t<decltype(x)>;
-            auto name = QString::fromStdString(k);
-            if constexpr (std::is_same_v<T, int>)
-                varObj.setProperty(name, QJSValue(x));
-            else if constexpr (std::is_same_v<T, double>)
-                varObj.setProperty(name, QJSValue(x));
-            else if constexpr (std::is_same_v<T, bool>)
-                varObj.setProperty(name, QJSValue(x));
-            else
-                varObj.setProperty(name, QJSValue(QString::fromStdString(x)));
+            if constexpr (std::is_same_v<T, int> ||
+                          std::is_same_v<T, double> ||
+                          std::is_same_v<T, bool>) {
+                varObj.setProperty(qname, QJSValue(x));
+            } else {
+                varObj.setProperty(qname, QJSValue(QString::fromStdString(x)));
+            }
         }, var.value());
     }
     obj.setProperty("vars", varObj);
