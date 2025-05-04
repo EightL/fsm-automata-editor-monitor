@@ -379,9 +379,11 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         // Regular transition between different states
         QPointF fromPos = m_fromState->scenePos();
         QPointF toPos = m_toState->scenePos();
-        QPointF midPoint = (fromPos + toPos) / 2.0;
         
-        // Calculate perpendicular vector for offset
+        // Position the label closer to the source state (1/3 of the way to destination)
+        QPointF twoThirdsToSource = fromPos + (toPos - fromPos) * 0.33;
+        
+        // Calculate perpendicular vector for offset (for multiple transitions in same direction)
         QPointF vec = toPos - fromPos;
         QPointF perpVec(-vec.y(), vec.x());
         
@@ -390,14 +392,13 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         if (!qFuzzyIsNull(length)) {
             perpVec = perpVec / length;
             
-            // Offset in perpendicular direction based on index
-            int side = (m_offsetIndex % 2 == 0) ? 1 : -1;
-            int magnitude = ((m_offsetIndex + 1) / 2) * (boxHeight + 10); // Scale offset by box height
-            QPointF offset = perpVec * side * magnitude;
+            // Only need perpendicular offset for multiple transitions in same direction
+            int magnitude = m_offsetIndex * (boxHeight + 5);
+            QPointF offset = perpVec * magnitude;
             
-            labelPos = midPoint + offset;
+            labelPos = twoThirdsToSource + offset;
         } else {
-            labelPos = midPoint;
+            labelPos = twoThirdsToSource;
         }
         
         textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y() - boxHeight/2, boxWidth, boxHeight);
@@ -463,7 +464,9 @@ QPainterPath TransitionItem::shape() const
         // Regular transition between different states
         QPointF fromPos = m_fromState->scenePos();
         QPointF toPos = m_toState->scenePos();
-        QPointF midPoint = (fromPos + toPos) / 2.0;
+        
+        // Position the label closer to the source state (1/3 of the way to destination)
+        QPointF twoThirdsToSource = fromPos + (toPos - fromPos) * 0.33;
         
         // Calculate perpendicular vector for offset
         QPointF vec = toPos - fromPos;
@@ -473,13 +476,13 @@ QPainterPath TransitionItem::shape() const
         if (!qFuzzyIsNull(length)) {
             perpVec = perpVec / length;
             
-            int side = (m_offsetIndex % 2 == 0) ? 1 : -1;
-            int magnitude = ((m_offsetIndex + 1) / 2) * (boxHeight + 10);
-            QPointF offset = perpVec * side * magnitude;
+            // Only need perpendicular offset for multiple transitions in same direction
+            int magnitude = m_offsetIndex * (boxHeight + 5);
+            QPointF offset = perpVec * magnitude;
             
-            labelPos = midPoint + offset;
+            labelPos = twoThirdsToSource + offset;
         } else {
-            labelPos = midPoint;
+            labelPos = twoThirdsToSource;
         }
         
         textRect = QRectF(labelPos.x() - boxWidth/2, labelPos.y() - boxHeight/2, boxWidth, boxHeight);
