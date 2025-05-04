@@ -98,20 +98,35 @@ bool Automaton::fireTransition(size_t transitionIndex,
     const auto& t = m_transitions[transitionIndex];
     if (t.src() != m_active) return false;
 
+    // 1) remember old state
+    const auto oldState = m_active;
+
+    // 2) actually change
     m_active = t.dst();
-    m_log.push_back({ Clock::now(), m_states[m_active].name(), triggerName, "" });
+    // push_back via emplace to avoid ambiguous initializer-list
+    m_log.emplace_back(
+        Clock::now(),
+        m_states[m_active].name(),
+        triggerName,
+        std::string{}      // the "extra" field
+    );
     if (m_snapshotHook) m_snapshotHook();
 
-    scheduler_.purgeForState(m_active,
+    // 3) drop timers for *this* new state
+    scheduler_.purgeForState(
+        m_active,
         [&](size_t idx){ return m_transitions[idx].src(); }
     );
 
-    m_stateSince = Clock::now();
+    // 4) only reset the clock if the state really changed
+    if (m_active != oldState) {
+        m_stateSince = Clock::now();
+    }
 
-    // <<< DROP-IN REPLACEMENT HERE >>>
+    // 5) pass the (possibly unchanged) m_stateSince into the new Context
     Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };
     m_states[m_active].onEnter(ctx);
-
+    
     return true;
 }
 

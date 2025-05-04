@@ -30,43 +30,65 @@ void bindCtx(QJSEngine& eng, Context& ctx) {
     }
     obj.setProperty("inputs", inObj);
 
-    // -- vars
+    // -- vars: export ints/doubles/bools as *real* JS primitives
     QJSValue varObj = eng.newObject();
     for (const auto& [k, var] : ctx.vars) {
-        QString s = std::visit([](auto&& x) -> QString {
+        std::visit([&](auto&& x){
             using T = std::decay_t<decltype(x)>;
-            if constexpr (std::is_same_v<T, bool>)    return x ? "1" : "0";
-            else if constexpr (std::is_same_v<T, int>)      return QString::number(x);
-            else if constexpr (std::is_same_v<T, double>)   return QString::number(x);
-            else                                            return QString::fromStdString(x);
+            auto name = QString::fromStdString(k);
+            if constexpr (std::is_same_v<T, int>)
+                varObj.setProperty(name, QJSValue(x));
+            else if constexpr (std::is_same_v<T, double>)
+                varObj.setProperty(name, QJSValue(x));
+            else if constexpr (std::is_same_v<T, bool>)
+                varObj.setProperty(name, QJSValue(x));
+            else
+                varObj.setProperty(name, QJSValue(QString::fromStdString(x)));
         }, var.value());
-        varObj.setProperty(
-            QString::fromStdString(k),
-            QJSValue(s)
-        );
     }
     obj.setProperty("vars", varObj);
 
     // -- outputs
     obj.setProperty("outputs", eng.newObject());
 
-    // install ctx into the JS global scope
-    eng.globalObject().setProperty("ctx", obj);
+    // -- import the C++ "steady_clock" state‐since as a system_clock epoch ms
+    {
+        using steady = std::chrono::steady_clock;
+        using system = std::chrono::system_clock;
 
-    // 3) helper functions + JS‐side since stamp
+        // 1) sample both clocks right now
+        auto nowSys    = system::now();
+        auto nowSteady = steady::now();
+
+        // 2) compute offset between steady‐epoch and system‐epoch
+        auto sysEpoch     = nowSys.time_since_epoch();
+        auto steadyEpoch  = nowSteady.time_since_epoch();
+        auto offset = sysEpoch 
+                    - std::chrono::duration_cast<system::duration>(steadyEpoch);
+
+        // 3) take your saved steady‐clock point and map it into system_clock:
+        auto sinceSteadyDur = ctx.stateSince.time_since_epoch();
+        auto sinceSysDur = std::chrono::duration_cast<system::duration>(sinceSteadyDur)
+                         + offset;
+
+        // 4) export as ms since system epoch
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sinceSysDur).count();
+        obj.setProperty("since", QJSValue(static_cast<double>(ms)));
+    }
+      
+      // install ctx
+      eng.globalObject().setProperty("ctx", obj);
+
+    // 3) helper functions — no more stamping in JS
     eng.evaluate(R"js(
-        // stamp the entry time
-        ctx.since = Date.now();
-
         function defined(n) { return n in ctx.inputs || n in ctx.vars; }
         function valueof(n) { return ctx.inputs[n] || ctx.vars[n] || ""; }
         function atoi(s) { return parseInt(s,10) || 0; }
         function elapsed() { return Date.now() - ctx.since; }
         function output(n,v) { ctx.outputs[n] = String(v); }
     )js");
-
+    
     // 4) alias every variable as a real global property
-    //    — setter now preserves JS number types instead of forcing String(v)
     eng.evaluate(R"js(
         (function(){
             for (let name in ctx.vars) {

@@ -35,6 +35,14 @@ public:
         std::string state;
         std::string triggerInput;  // empty for timeouts
         std::string triggerValue;
+
+        // Constructor for emplace_back compatibility
+        EventLog(TimePoint timestamp_,
+                 const std::string& state_,
+                 const std::string& triggerInput_,
+                 const std::string& triggerValue_)
+          : timestamp(timestamp_), state(state_), triggerInput(triggerInput_), triggerValue(triggerValue_)
+        {}
     };
 
 

@@ -29,7 +29,7 @@ MainWindow::MainWindow(QWidget* parent)
   , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    this->resize(1200, 800);
+    this->resize(1600, 1000);
     
     for (auto *tbl : { ui->tableInputs,
             ui->tableVariables,
@@ -67,7 +67,7 @@ MainWindow::MainWindow(QWidget* parent)
     ui->centralSplitter->insertWidget(1, m_warningBar);
 
     // ui->mainToolBar->hide();
-    ui->horizontalSplitter->setSizes({300, 600, 330});
+    ui->horizontalSplitter->setSizes({300, 600, 400});
     ui->horizontalSplitter->setStretchFactor(0, 0);  // tabs: fixed
     ui->horizontalSplitter->setStretchFactor(1, 1);  // diagram: stretch
     ui->horizontalSplitter->setStretchFactor(2, 0);  // properties: fixed
