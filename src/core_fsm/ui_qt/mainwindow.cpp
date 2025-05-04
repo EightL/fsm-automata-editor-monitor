@@ -829,6 +829,18 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         // delay (as JSON)
         QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
         delayEdit->setPlaceholderText(tr("Leave empty for null"));
+        
+        // Set the current delay value if it exists
+        if (!m_doc.transitions[index].delay_ms.is_null()) {
+            if (m_doc.transitions[index].delay_ms.is_number_integer()) {
+                // If it's a number, show just the number
+                delayEdit->setText(QString::number(m_doc.transitions[index].delay_ms.get<int>()));
+            } else {
+                // For other types (strings, etc), show the raw JSON
+                delayEdit->setText(QString::fromStdString(m_doc.transitions[index].delay_ms.dump()));
+            }
+        }
+        
         ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
         connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit, updateTransitionLabel]() {
             QString delayText = delayEdit->text().trimmed();
