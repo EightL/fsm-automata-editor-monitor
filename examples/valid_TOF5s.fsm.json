@@ -10,7 +10,7 @@
     "variables": [
         {
             "name": "timeout",
-            "type": "",
+            "type": "int",
             "init": 5000
         }
     ],

@@ -1,5 +1,6 @@
 // src/core_fsm/script_engine.cpp
 #include "script_engine.hpp"
+#include "variable.hpp"        // for core_fsm::Variable::Type
 
 #include <QJSEngine>
 #include <QJSValue>
@@ -65,12 +66,13 @@ void bindCtx(QJSEngine& eng, Context& ctx) {
     )js");
 
     // 4) alias every variable as a real global property
+    //    — setter now preserves JS number types instead of forcing String(v)
     eng.evaluate(R"js(
         (function(){
             for (let name in ctx.vars) {
                 Object.defineProperty(this, name, {
                     get: function() { return ctx.vars[name]; },
-                    set: function(v)  { ctx.vars[name] = String(v); }
+                    set: function(v)  { ctx.vars[name] = v; }
                 });
             }
         })();
@@ -81,20 +83,33 @@ void bindCtx(QJSEngine& eng, Context& ctx) {
 void pullBack(QJSEngine& eng, Context& ctx) {
     QJSValue obj = eng.globalObject().property("ctx");
 
-    // -- read back vars
+    // -- read back vars, converting JS numbers into int/double per declared type
     QJSValue varObj = obj.property("vars");
     QJSValueIterator it(varObj);
     while (it.hasNext()) {
         it.next();
-        std::string name = it.name().toStdString();
-        std::string val  = it.value().toString().toStdString();
-        auto   iter     = ctx.vars.find(name);
-        if (iter != ctx.vars.end()) {
-            iter->second.set(val);
+        const std::string name = it.name().toStdString();
+        QJSValue            jsVal= it.value();
+        auto               iter = ctx.vars.find(name);
+        if (iter == ctx.vars.end()) continue;
+
+        auto& var = iter->second;
+        switch (var.type()) {
+            case Variable::Type::Int:
+                // JS numbers may be fractional; cast to int
+                var.set(static_cast<int>(jsVal.toNumber()));
+                break;
+            case Variable::Type::Double:
+                var.set(jsVal.toNumber());
+                break;
+            case Variable::Type::String:
+            default:
+                var.set(jsVal.toString().toStdString());
+                break;
         }
     }
 
-    // -- read back outputs
+    // -- read back outputs (unchanged)
     QJSValue outObj = obj.property("outputs");
     QJSValueIterator it2(outObj);
     while (it2.hasNext()) {
