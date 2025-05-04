@@ -34,8 +34,7 @@ private slots:
     // from step 1…
     void on_actionConnect_triggered();
     void on_actionDisconnect_triggered();
-    void on_buttonInject_clicked();
-    void on_actionBuildRun_triggered();
+        void on_actionBuildRun_triggered();
 
     // **new** file I/O slots
     void on_actionOpen_triggered();

@@ -75,12 +75,6 @@ MainWindow::MainWindow(QWidget* parent)
     ui->centralSplitter->setStretchFactor(1, 0);  // warningBar fixed
     ui->centralSplitter->setStretchFactor(2, 0);  // codeE
 
-    ui->lineEditInputName->setSizePolicy(
-        QSizePolicy::Expanding, QSizePolicy::Fixed
-    );
-    ui->lineEditInputValue->setSizePolicy(
-        QSizePolicy::Expanding, QSizePolicy::Fixed
-    );
     // diagram scene stub
     m_scene = std::make_unique<QGraphicsScene>(this);
     ui->graphicsViewDiagram->setScene(m_scene.get());
@@ -101,6 +95,10 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->addVariableButton, &QPushButton::clicked, this, &MainWindow::addVariable);
     connect(ui->addInputButton, &QPushButton::clicked, this, &MainWindow::addInput);
     connect(ui->addOutputButton, &QPushButton::clicked, this, &MainWindow::addOutput);
+
+    // Ensure the input table is connected for editing
+    connect(ui->tableInputs, &QTableWidget::cellChanged, 
+            this, &MainWindow::handleInputCellChanged);
 
     // TODO: this might need some fixing
     // Connect signals for interactive scene
@@ -200,6 +198,9 @@ void MainWindow::handleInputCellChanged(int row, int column)
             {"value", value.toStdString()}
         };
         m_runtime->sendCustomMessage(j.dump());
+        
+        // Update our local snapshot to reflect the change immediately
+        m_lastSnapshot.inputs[name] = value;
     }
 }
 
@@ -470,28 +471,27 @@ void MainWindow::updateMonitor(const StateSnapshot& snap)
         m_stateItems[id]->setBrush(id == current ? QBrush(Qt::lightGray)
                                                  : QBrush(Qt::white));
 
-    // ── prune inputs that are also variables ──
-    QMap<QString,QString> inputs = snap.inputs;
-    for (auto const& v : m_doc.variables)
-        inputs.remove(QString::fromStdString(v.name));
-
-    int row;
-
     // ------------------------------------------------------------------
     //  INPUTS  (name=read-only, value=editable, + Send button)
     // ------------------------------------------------------------------
     ui->tableInputs->blockSignals(true);
     ui->tableInputs->clearContents();
-    ui->tableInputs->setRowCount(inputs.size());
-    row = 0;
-    for (auto it = inputs.cbegin(); it != inputs.cend(); ++it, ++row) {
+    
+    // Use all defined inputs from the document instead of just those in snapshot
+    ui->tableInputs->setRowCount(m_doc.inputs.size());
+    
+    int row = 0;
+    for (const auto& inputName : m_doc.inputs) {
+        QString name = QString::fromStdString(inputName);
+        
         // name cell
-        auto *n = new QTableWidgetItem(it.key());
+        auto *n = new QTableWidgetItem(name);
         n->setFlags(n->flags() & ~Qt::ItemIsEditable);
         ui->tableInputs->setItem(row, 0, n);
 
-        // value cell
-        auto *v = new QTableWidgetItem(it.value());
+        // value cell - use value from snapshot if available
+        QString value = snap.inputs.value(name, "");
+        auto *v = new QTableWidgetItem(value);
         v->setFlags(v->flags() | Qt::ItemIsEditable);
         ui->tableInputs->setItem(row, 1, v);
 
@@ -499,7 +499,7 @@ void MainWindow::updateMonitor(const StateSnapshot& snap)
         auto *btn = new QPushButton(tr("Send"));
         ui->tableInputs->setCellWidget(row, 2, btn);
 
-        // wire the button to send whatever’s in “value”
+        // wire the button to send whatever's in "value"
         connect(btn, &QPushButton::clicked, this, [this, row]() {
             QString name  = ui->tableInputs->item(row, 0)->text();
             QString value = ui->tableInputs->item(row, 1)->text();
@@ -512,6 +512,8 @@ void MainWindow::updateMonitor(const StateSnapshot& snap)
                 m_runtime->sendCustomMessage(j.dump());
             }
         });
+        
+        row++;
     }
     ui->tableInputs->blockSignals(false);
 
@@ -969,7 +971,7 @@ void MainWindow::on_actionConnect_triggered()
 
     ui->actionConnect   ->setEnabled(false);
     ui->actionDisconnect->setEnabled(true);
-    ui->buttonInject    ->setEnabled(true);
+    // ui->buttonInject    ->setEnabled(true);
 }
 
 void MainWindow::on_actionDisconnect_triggered()
@@ -983,44 +985,7 @@ void MainWindow::on_actionDisconnect_triggered()
     // (we no longer kill the interpreter—only the channel)
     ui->actionDisconnect ->setEnabled(false);
     ui->actionConnect    ->setEnabled(true);
-    ui->buttonInject     ->setEnabled(false);
-}
-
-void MainWindow::on_buttonInject_clicked()
-{
-    const QString name  = ui->lineEditInputName ->text().trimmed();
-    const QString value = ui->lineEditInputValue->text();
-    if (name.isEmpty()) return;
-
-    // — only allow inputs that actually exist in the FSM —
-    bool knownInput = std::any_of(
-        m_doc.inputs.begin(), m_doc.inputs.end(),
-        [&name](const auto& in){ return QString::fromStdString(in) == name; }
-    );
-    if (!knownInput) {
-        m_warningBar->setText(tr("Unknown input “%1”").arg(name));
-        m_warningBar->setVisible(true);
-        return;
-    }
-    m_warningBar->clear();
-    m_warningBar->setVisible(false);
-
-    // — send to runtime —
-    if (m_runtime) {
-        nlohmann::json j = {
-            {"type",  "inject"},
-            {"name",  name.toStdString()},
-            {"value", value.toStdString()}
-        };
-        m_runtime->sendCustomMessage(j.dump());
-    }
-
-    ui->lineEditInputValue->clear();
-
-    // — immediately update the Inputs table (and hide/clear warnings) —
-    // mirror it locally so updateMonitor will show the new value at once
-    m_lastSnapshot.inputs[name] = value;
-    updateMonitor(m_lastSnapshot);
+    // ui->buttonInject     ->setEnabled(false);
 }
 
 void MainWindow::on_actionBuildRun_triggered()
