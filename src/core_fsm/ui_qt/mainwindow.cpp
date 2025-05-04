@@ -338,7 +338,8 @@ void MainWindow::populateProjectTree() {
     for (auto const& v : m_doc.variables) {
         QString label = QString::fromStdString(v.name)
                       + " = "
-                      + QString::fromStdString(v.init.dump());
+                      + QString::fromStdString(v.init.dump())
+                      + " (" + QString::fromStdString(v.type) + ")";
         varRoot->addChild(new QTreeWidgetItem({ label }));
     }
     ui->projectTree->addTopLevelItem(varRoot);
@@ -595,7 +596,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         return;
     }
 
-    // — Variables: name + initial value
+    // — Variables: name + type + initial value
     if (category == tr("Variables")) {
         // name
         auto *nameEdit = new QLineEdit(QString::fromStdString(m_doc.variables[index].name));
@@ -604,9 +605,33 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             QString newName = nameEdit->text().trimmed();
             if (newName.isEmpty()) return;
             m_doc.variables[index].name = newName.toStdString();
-            it->setText(0, QString::fromStdString(m_doc.variables[index].name) 
-                          + " = " 
-                          + QString::fromStdString(m_doc.variables[index].init.dump()));
+            updateVariableTreeItem(index, it);
+        });
+
+        // type selection
+        QComboBox* typeCombo = new QComboBox();
+        typeCombo->addItems(QStringList() << "int" << "float" << "string");
+        
+        // Set current type from the variable
+        QString currentType = QString::fromStdString(m_doc.variables[index].type);
+        if (currentType.isEmpty()) {
+            // Default to int if no type is set
+            typeCombo->setCurrentIndex(0);
+            m_doc.variables[index].type = "int"; // Initialize type if not set
+        } else if (currentType == "float") {
+            typeCombo->setCurrentIndex(1);
+        } else if (currentType == "string") {
+            typeCombo->setCurrentIndex(2);
+        } else {
+            typeCombo->setCurrentIndex(0); // Default to int for any unrecognized types
+        }
+        
+        ui->formProperties->addRow(tr("Type:"), typeCombo);
+        
+        connect(typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+            this, [this, index, it, typeCombo](int) {
+                m_doc.variables[index].type = typeCombo->currentText().toStdString();
+                updateVariableTreeItem(index, it);
         });
 
         // init
@@ -627,9 +652,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
                     m_doc.variables[index].init = valueText.toStdString();
                 }
             }
-            it->setText(0, QString::fromStdString(m_doc.variables[index].name) 
-                          + " = " 
-                          + QString::fromStdString(m_doc.variables[index].init.dump()));
+            updateVariableTreeItem(index, it);
         });
 
         // Add delete button at the end
@@ -1472,6 +1495,12 @@ void MainWindow::addVariable()
     QLineEdit* nameEdit = new QLineEdit();
     form->addRow(tr("Name:"), nameEdit);
     
+    // Type selection combo box
+    QComboBox* typeCombo = new QComboBox();
+    typeCombo->addItems(QStringList() << "int" << "float" << "string");
+    typeCombo->setCurrentIndex(0); // Default to int
+    form->addRow(tr("Type:"), typeCombo);
+    
     // Initial value field (JSON)
     QLineEdit* initEdit = new QLineEdit("0");  // Default to 0
     initEdit->setPlaceholderText(tr("JSON value (number, string, array, etc.)"));
@@ -1511,6 +1540,7 @@ void MainWindow::addVariable()
     // Create the new variable
     core_fsm::persistence::VariableDesc newVar;
     newVar.name = newName;
+    newVar.type = typeCombo->currentText().toStdString(); // Set the type
     
     // Parse initial value
     try {
@@ -1721,4 +1751,14 @@ void MainWindow::appendToConsole(const QString& text)
     QTextCursor c = ui->codeEditor->textCursor();
     c.movePosition(QTextCursor::End);
     ui->codeEditor->setTextCursor(c);
+}
+
+// Add this helper function to your MainWindow class
+void MainWindow::updateVariableTreeItem(int index, QTreeWidgetItem* item) {
+    const auto& var = m_doc.variables[index];
+    QString displayText = QString::fromStdString(var.name) + 
+                         " = " + 
+                         QString::fromStdString(var.init.dump()) + 
+                         " (" + QString::fromStdString(var.type) + ")";
+    item->setText(0, displayText);
 }

@@ -96,4 +96,5 @@ private:
     // Add these methods in the private section
     void updateTransitionVisual(int transitionIndex);
     void updateStateVisual(int stateIndex);
+    void updateVariableTreeItem(int index, QTreeWidgetItem* item);
 };
