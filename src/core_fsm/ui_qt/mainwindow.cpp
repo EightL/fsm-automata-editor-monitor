@@ -67,11 +67,10 @@ MainWindow::MainWindow(QWidget* parent)
     ui->centralSplitter->insertWidget(1, m_warningBar);
 
     // ui->mainToolBar->hide();
-    ui->horizontalSplitter->setSizes({300, 600, 250});
+    ui->horizontalSplitter->setSizes({300, 600, 330});
     ui->horizontalSplitter->setStretchFactor(0, 0);  // tabs: fixed
     ui->horizontalSplitter->setStretchFactor(1, 1);  // diagram: stretch
     ui->horizontalSplitter->setStretchFactor(2, 0);  // properties: fixed
-    ui->horizontalSplitter->setSizes({400, 15, 180});
     ui->centralSplitter->setStretchFactor(0, 1);  // diagram grows
     ui->centralSplitter->setStretchFactor(1, 0);  // warningBar fixed
     ui->centralSplitter->setStretchFactor(2, 0);  // codeE
