@@ -38,10 +38,15 @@ target_link_libraries(core_fsm
 
 # ——— Qt GUI code as a lib ————————————————————————————————————————
 add_library(ui_qt_client
-  ui_qt/mainwindow.cpp
+  ui_qt/mainwindow_core.cpp
   ui_qt/mainwindow.hpp
   ui_qt/mainwindow.ui
   ui_qt/fsmgraphicsitems.cpp
+  ui_qt/mainwindow_creator.cpp
+  ui_qt/mainwindow_editor.cpp
+  ui_qt/mainwindow_file.cpp
+  ui_qt/mainwindow_runtime.cpp
+  ui_qt/mainwindow_visualization.cpp
 )
 
 target_include_directories(ui_qt_client PUBLIC

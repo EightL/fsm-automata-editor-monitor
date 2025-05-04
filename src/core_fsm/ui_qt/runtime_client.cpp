@@ -1,7 +1,6 @@
 #include "runtime_client.hpp"
-#include "../../../external/nlohmann/json.hpp" // for nlohmann::json
-#include "../io_bridge/udp_channel.hpp"   // ← add this line
-#include <QDebug>
+#include "../../../external/nlohmann/json.hpp"
+#include "../io_bridge/udp_channel.hpp"
 #include <thread>
 using namespace io_bridge;
 
