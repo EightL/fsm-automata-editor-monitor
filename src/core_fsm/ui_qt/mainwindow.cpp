@@ -535,19 +535,28 @@ void MainWindow::updateMonitor(const StateSnapshot& snap)
     ui->tableVariables->blockSignals(false);
 
     // ------------------------------------------------------------------
-    //  OUTPUTS  (read-only, same as before)
+    //  OUTPUTS  (read-only, show all defined outputs)
     // ------------------------------------------------------------------
     ui->tableOutputs->blockSignals(true);
     ui->tableOutputs->clearContents();
-    ui->tableOutputs->setRowCount(snap.outputs.size());
+    ui->tableOutputs->setRowCount(m_doc.outputs.size());
+    
     row = 0;
-    for (auto it = snap.outputs.cbegin(); it != snap.outputs.cend(); ++it, ++row) {
-        auto *n = new QTableWidgetItem(it.key());
-        auto *v = new QTableWidgetItem(it.value());
+    for (const auto& outputName : m_doc.outputs) {
+        QString name = QString::fromStdString(outputName);
+        
+        // name cell
+        auto *n = new QTableWidgetItem(name);
         n->setFlags(n->flags() & ~Qt::ItemIsEditable);
+        ui->tableOutputs->setItem(row, 0, n);
+
+        // value cell - use value from snapshot if available
+        QString value = snap.outputs.value(name, "");
+        auto *v = new QTableWidgetItem(value);
         v->setFlags(v->flags() & ~Qt::ItemIsEditable);
-        ui->tableOutputs->setItem(row,0,n);
-        ui->tableOutputs->setItem(row,1,v);
+        ui->tableOutputs->setItem(row, 1, v);
+        
+        row++;
     }
     ui->tableOutputs->blockSignals(false);
 }
