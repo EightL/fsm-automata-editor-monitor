@@ -73,6 +73,27 @@ Transition::Transition(std::string inputName,
     }
 }
 
+// NEW constructor for variable delays
+Transition::Transition(std::string inputName,
+                       std::string guardExpr,
+                       std::string delayVarName,
+                       std::size_t src,
+                       std::size_t dst)
+  : m_inputName(std::move(inputName))
+  , m_delayVarName(std::move(delayVarName))
+  , m_src(src)
+  , m_dst(dst)
+{
+    if (!guardExpr.empty()) {
+        QString jsFn = QString("(function(){ return %1; })")
+                        .arg(QString::fromStdString(guardExpr));
+        QJSValue fn = engine().evaluate(jsFn);
+        if (!fn.isCallable())
+            throw std::runtime_error("Guard compile error: " + guardExpr);
+        guardFn_ = fn;
+    }
+}
+
 bool Transition::isTriggered(const std::string& incomingInput,
                              const GuardCtx&    ctx) const
 {

@@ -20,6 +20,7 @@ using Value = std::variant<int, double, std::string, bool>;
  */
 class Variable {
 public:
+
     /** Supported variable types. */
     enum class Type { Int = 0, Double = 1, String = 2, Bool = 3 };
 

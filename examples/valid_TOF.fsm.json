@@ -13,7 +13,7 @@
     "variables": [
         {
             "name": "timeout",
-            "type": "",
+            "type": "int",
             "init": 5000
         }
     ],
@@ -21,15 +21,15 @@
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\"))};  output(\"out\", 0);  output(\"rt\", 0);"
+            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"out\", 0); output(\"rt\", 0);"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\"))};  output(\"out\", 1);  output(\"rt\", timeout);"
+            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"out\", 1); output(\"rt\", timeout);"
         },
         {
             "id": "TIMING",
-            "onEnter": "if {defined(\"set_to\")} { timeout = atoi(valueof(\"set_to\"))};  output(\"rt\", timeout - elapsed() );"
+            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"rt\", timeout - elapsed());"
         }
     ],
     "transitions": [

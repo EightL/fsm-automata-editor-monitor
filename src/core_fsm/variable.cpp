@@ -3,6 +3,8 @@
 
 using namespace core_fsm;
 
+
+
 Variable::Variable(std::string name, Type type, Value init)
   : m_name(std::move(name))
   , m_type(type)
