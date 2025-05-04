@@ -114,7 +114,7 @@ MainWindow::MainWindow(QWidget* parent)
             for (int i = 0; i < m_doc.states.size(); i++) {
                 if (m_doc.states[i].id == stateItem->stateId().toStdString()) {
                     // Select the corresponding item in the project tree
-                    QTreeWidgetItem* statesRoot = ui->projectTree->topLevelItem(3); // States category
+                    QTreeWidgetItem* statesRoot = ui->projectTree->topLevelItem(4); // States category (was 3)
                     if (statesRoot && i < statesRoot->childCount()) {
                         ui->projectTree->setCurrentItem(statesRoot->child(i));
                         break;
@@ -131,7 +131,7 @@ MainWindow::MainWindow(QWidget* parent)
             std::string toStateId = transItem->toItem()->stateId().toStdString();
             
             // Find the matching transition in the model
-            QTreeWidgetItem* transRoot = ui->projectTree->topLevelItem(4); // Transitions category
+            QTreeWidgetItem* transRoot = ui->projectTree->topLevelItem(5); // Transitions category (was 4)
             if (!transRoot) return;
             
             // Look for a transition with matching from/to states
