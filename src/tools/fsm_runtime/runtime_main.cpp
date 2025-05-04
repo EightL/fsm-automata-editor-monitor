@@ -20,6 +20,7 @@
 #include "../../core_fsm/transition.hpp"
 #include "../../core_fsm/variable.hpp"
 #include "../../core_fsm/io_bridge/udp_channel.hpp"
+#include "script_engine.hpp"
 
 using namespace std::chrono_literals;
 using core_fsm::Automaton;
@@ -44,7 +45,7 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
 
     // 1) Variables ------------------------------------------------------------
     for (const auto& v : doc.variables) {
-        // Determine the enum for the variable’s declared type
+        // Determine the enum for the variable's declared type
         auto varType = mapVarType(v.type);
     
         // Convert the JSON init value into core_fsm::Value
@@ -65,24 +66,38 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
     }
 
     // 2) States ---------------------------------------------------------------
-    // We cannot execute arbitrary C(++) snippets yet.  For P4 we only honour
-    //   output("name", <number>)
-    // inside the on‑enter action so the GUI at least sees ‘out’ toggling.
+    using core_fsm::script::engine;
+    using core_fsm::script::bindCtx;
+    using core_fsm::script::pullBack;
 
     for (const auto& st : doc.states) {
-        const std::string enterSrc = st.onEnter; // capture by value into lambda
-
-        // capture both the onEnter source and the state name
+        const std::string src = st.onEnter;
+        const std::string stateId = st.id; // Store the ID locally
         fsm.addState(core_fsm::State{
-            st.id,
-            [enterSrc, name = st.id](core_fsm::Context& ctx){
-                static const std::regex re(R"(output\(\"([^\"]+)\",\s*([0-9]+)\))");
-                std::smatch m;
-                if (std::regex_search(enterSrc, m, re)) {
-                    ctx.output(m[1].str(), m[2].str());
+            stateId,
+            [src, stateId](core_fsm::Context& ctx){
+                // 1) bind C++ context into JS
+                auto& eng = engine();
+                bindCtx(eng, ctx);
+
+                // 2) compile & cache the JS action
+                static QHash<QString,QJSValue> cache;
+                QString key = QString::fromStdString(src);
+                QJSValue fn = cache.value(key);
+                if (!fn.isCallable()) {
+                    // wrap in function to allow multiple statements
+                    QString wrap = "(function(){ " + key + "; })";
+                    fn = eng.evaluate(wrap);
+                    cache.insert(key, fn);
                 }
-                // Log the state change by name (no ctx.state member)
-                std::cout << "{\"type\":\"state\",\"state\":\"" << name << "\"}\n";
+
+                // 3) execute and pull back changes
+                if (fn.isCallable()) fn.call();
+                pullBack(eng, ctx);
+
+                // 4) log state change
+                std::cout << "{\"type\":\"state\",\"state\":\""
+                          << stateId << "\"}\n";
             }
         }, st.initial);
     }
@@ -104,29 +119,31 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
     }
 
     for (const auto& tr : doc.transitions) {
-        std::chrono::milliseconds delay{0};
-        if (tr.delay_ms.is_number_integer()) {
-            delay = std::chrono::milliseconds(tr.delay_ms.get<int>());
+        if (tr.delay_ms.is_string()) {
+            // variable‐delay transition
+            fsm.addTransition(core_fsm::Transition(
+                tr.trigger,
+                tr.guard,
+                tr.delay_ms.get<std::string>(),   // just the var name
+                idx.at(tr.from),
+                idx.at(tr.to)
+            ));
         }
-        else if (tr.delay_ms.is_string()) {
-            auto varName = tr.delay_ms.get<std::string>();
-            auto it = varInit.find(varName);
-            if (it != varInit.end())
-                delay = std::chrono::milliseconds(it->second);
+        else {
+            // fixed numeric (or zero) delay
+            std::chrono::milliseconds delay{0};
+            if (tr.delay_ms.is_number_integer())
+                delay = std::chrono::milliseconds(tr.delay_ms.get<int>());
+    
+            fsm.addTransition(core_fsm::Transition(
+                tr.trigger,
+                tr.guard,
+                delay,                           // fixed ms
+                idx.at(tr.from),
+                idx.at(tr.to)
+            ));
         }
-        // else null or unrecognized → leave at 0ms
-
-        fsm.addTransition(
-            core_fsm::Transition(
-                tr.trigger,         // input name
-                tr.guard,           // guard expression (string)
-                delay,              // delay in ms
-                idx.at(tr.from),    // source-state index
-                idx.at(tr.to)       // destination-state index
-            )
-        );
     }
-
 }
 
 // Add this helper function to check if stdin has data without blocking

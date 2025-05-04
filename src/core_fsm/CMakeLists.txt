@@ -18,6 +18,7 @@ add_library(core_fsm
   automaton.cpp
   persistence_bridge.cpp
   io_bridge/udp_channel.cpp
+  script_engine.cpp 
 )
 
 target_include_directories(core_fsm PUBLIC

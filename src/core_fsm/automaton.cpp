@@ -5,7 +5,7 @@
 #include <condition_variable>
 #include "../../external/nlohmann/json.hpp"
 #include <iostream>
-
+#include <QDebug>
 using namespace core_fsm;
 
 namespace {
@@ -92,27 +92,29 @@ void Automaton::broadcastSnapshot() {
     std::cerr << "RUNTIME → UDP: " << j.dump() << std::endl;
 }
 
-bool Automaton::fireTransition(size_t transitionIndex, const std::string& triggerName) {
+bool Automaton::fireTransition(size_t transitionIndex,
+                               const std::string& triggerName)
+{
     const auto& t = m_transitions[transitionIndex];
     if (t.src() != m_active) return false;
-    
+
     m_active = t.dst();
     m_log.push_back({ Clock::now(), m_states[m_active].name(), triggerName, "" });
     if (m_snapshotHook) m_snapshotHook();
-    
-    // Drop timers for transitions that are no longer relevant
+
     scheduler_.purgeForState(m_active,
         [&](size_t idx){ return m_transitions[idx].src(); }
     );
-    
+
     m_stateSince = Clock::now();
-    // Create a snapshot of variable values
-    auto varSnap = makeVarSnapshot(m_vars);
-    Context ctx{ varSnap, m_inputs, m_outputs, m_stateSince };
+
+    // <<< DROP-IN REPLACEMENT HERE >>>
+    Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };
     m_states[m_active].onEnter(ctx);
-    
+
     return true;
 }
+
 
 bool Automaton::processImmediateTransitions(const std::string& trigger) {
     bool anyFired = false;
@@ -128,11 +130,37 @@ bool Automaton::processImmediateTransitions(const std::string& trigger) {
             if (t.src() == m_active && 
                 t.isTriggered(trigger.empty() ? "" : trigger, guardCtx)) {
                 
-                // Always use scheduler with at least 1ms delay for all transitions
-                // This prevents issues with self-transitions while maintaining the
-                // defined behavior for explicitly delayed transitions
-                auto effectiveDelay = t.isDelayed() ? t.delay() : std::chrono::milliseconds(1);
+                // Compute delay: default 1ms
+                auto effectiveDelay = std::chrono::milliseconds(1);
+
+                if (t.hasVariableDelay()) {
+                    // lookup the *current* variable value
+                    const auto& varName = t.variableDelayName();
+                    auto it = m_vars.find(varName);
+                    if (it != m_vars.end()) {
+                        switch (it->second.type()) {
+                          case Variable::Type::Int:
+                            effectiveDelay = std::chrono::milliseconds(
+                                std::get<int>(it->second.value()));
+                            break;
+                          case Variable::Type::Double:
+                            effectiveDelay = std::chrono::milliseconds(
+                                static_cast<int>(std::get<double>(it->second.value())));
+                            break;
+                          default:
+                            break;  // leave as 1ms or whatever you choose
+                        }
+                    }
+                }
+                else if (t.isDelayed()) {
+                    // fixed‐delay transition
+                    effectiveDelay = t.delay();
+                }
+                qDebug() << "[arm]" << m_transitions[i].src() << "→" 
+                << m_transitions[i].dst()
+                << "delay =" << effectiveDelay.count() << "ms";
                 scheduler_.arm(i, effectiveDelay);
+
             }
         }
     } while (fired);
