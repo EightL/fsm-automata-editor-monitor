@@ -7,9 +7,9 @@
 #include <QTimer>
 #include <QLabel>
 // #include "ui_mainwindow.h"
-#include "runtime_client.hpp"
-#include "../persistence.hpp"
-#include "fsmgraphicsitems.hpp"
+#include "../../core/io/runtime_client.hpp"
+#include "../../core/persistence.hpp"
+#include "../graphics/fsmgraphicsitems.hpp"
 
 // Forward declarations
 class RuntimeClient;

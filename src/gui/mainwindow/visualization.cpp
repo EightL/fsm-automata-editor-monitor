@@ -2,7 +2,7 @@
 #include <QDebug>
 #include <QtMath>
 
-#include "fsmgraphicsitems.hpp"
+#include "../graphics/fsmgraphicsitems.hpp"
 
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"

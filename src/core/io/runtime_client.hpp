@@ -8,9 +8,9 @@
 #include <QMap>
 #include <QProcess>
 #include <memory>
-#include "../io_bridge/channel.hpp"
-#include "../../../external/nlohmann/json.hpp" // for nlohmann::json
-#include "../io_bridge/udp_channel.hpp"   // ← add this line
+#include "channel.hpp"
+#include <nlohmann/json.hpp>
+#include "udp_channel.hpp"
 
 // A lightweight snapshot of one “state” message
 struct StateSnapshot {

@@ -11,16 +11,16 @@
 #include <unistd.h>
 #include <sys/select.h>
 
-#include "../../external/nlohmann/json.hpp" // nlohmann::json
+#include <nlohmann/json.hpp>
+#include <script_engine.hpp>
 
-#include "../../core_fsm/automaton.hpp"
-#include "../../core_fsm/context.hpp"
-#include "../../core_fsm/persistence.hpp"
-#include "../../core_fsm/state.hpp"
-#include "../../core_fsm/transition.hpp"
-#include "../../core_fsm/variable.hpp"
-#include "../../core_fsm/io_bridge/udp_channel.hpp"
-#include "script_engine.hpp"
+#include "../core/automaton.hpp"
+#include "../core/context.hpp"
+#include "../core/persistence.hpp"
+#include "../core/state.hpp"
+#include "../core/transition.hpp"
+#include "../core/variable.hpp"
+#include "../core/io/udp_channel.hpp"
 
 using namespace std::chrono_literals;
 using core_fsm::Automaton;

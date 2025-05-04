@@ -3,7 +3,7 @@
 #include "scheduler.hpp"
 #include <mutex>
 #include <condition_variable>
-#include "../../external/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <iostream>
 #include <QDebug>
 using namespace core_fsm;

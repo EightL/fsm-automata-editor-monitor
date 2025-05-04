@@ -2,8 +2,8 @@
 #include <QTableWidgetItem>
 #include <QPushButton>
 
-#include "runtime_client.hpp"
-#include "fsmgraphicsitems.hpp"
+#include "../../core/io/runtime_client.hpp"
+#include "../graphics/fsmgraphicsitems.hpp"
 
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"

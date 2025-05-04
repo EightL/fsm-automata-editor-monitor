@@ -13,7 +13,7 @@
 #include "variable.hpp"
 #include "transition.hpp"
 #include "state.hpp"
-#include "io_bridge/channel.hpp" 
+#include "io/channel.hpp" 
 
 namespace core_fsm {
 

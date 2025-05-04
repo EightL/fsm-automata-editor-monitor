@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <chrono>
-#include "../../external/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 using ordered_json = nlohmann::ordered_json;
 
 

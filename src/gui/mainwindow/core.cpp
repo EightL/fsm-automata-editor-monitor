@@ -6,8 +6,8 @@
 #include <QProcess>
 #include <QDateTime>
 
-#include "runtime_client.hpp"
-#include "fsmgraphicsitems.hpp"
+#include "../core/io/runtime_client.hpp"
+#include "../graphics/fsmgraphicsitems.hpp"
 
 MainWindow::MainWindow(QWidget* parent)
   : QMainWindow(parent)

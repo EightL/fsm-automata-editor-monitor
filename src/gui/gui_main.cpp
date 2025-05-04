@@ -1,6 +1,6 @@
 // ui_qt/gui_main.cpp
 #include <QApplication>
-#include "mainwindow.hpp"
+#include "mainwindow/mainwindow.hpp"
 
 int main(int argc, char *argv[])
 {
