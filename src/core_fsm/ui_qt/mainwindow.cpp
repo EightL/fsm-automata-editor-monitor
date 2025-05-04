@@ -535,19 +535,28 @@ void MainWindow::updateMonitor(const StateSnapshot& snap)
     ui->tableVariables->blockSignals(false);
 
     // ------------------------------------------------------------------
-    //  OUTPUTS  (read-only, same as before)
+    //  OUTPUTS  (read-only, show all defined outputs)
     // ------------------------------------------------------------------
     ui->tableOutputs->blockSignals(true);
     ui->tableOutputs->clearContents();
-    ui->tableOutputs->setRowCount(snap.outputs.size());
+    ui->tableOutputs->setRowCount(m_doc.outputs.size());
+    
     row = 0;
-    for (auto it = snap.outputs.cbegin(); it != snap.outputs.cend(); ++it, ++row) {
-        auto *n = new QTableWidgetItem(it.key());
-        auto *v = new QTableWidgetItem(it.value());
+    for (const auto& outputName : m_doc.outputs) {
+        QString name = QString::fromStdString(outputName);
+        
+        // name cell
+        auto *n = new QTableWidgetItem(name);
         n->setFlags(n->flags() & ~Qt::ItemIsEditable);
+        ui->tableOutputs->setItem(row, 0, n);
+
+        // value cell - use value from snapshot if available
+        QString value = snap.outputs.value(name, "");
+        auto *v = new QTableWidgetItem(value);
         v->setFlags(v->flags() & ~Qt::ItemIsEditable);
-        ui->tableOutputs->setItem(row,0,n);
-        ui->tableOutputs->setItem(row,1,v);
+        ui->tableOutputs->setItem(row, 1, v);
+        
+        row++;
     }
     ui->tableOutputs->blockSignals(false);
 }
@@ -820,6 +829,18 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         // delay (as JSON)
         QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
         delayEdit->setPlaceholderText(tr("Leave empty for null"));
+        
+        // Set the current delay value if it exists
+        if (!m_doc.transitions[index].delay_ms.is_null()) {
+            if (m_doc.transitions[index].delay_ms.is_number_integer()) {
+                // If it's a number, show just the number
+                delayEdit->setText(QString::number(m_doc.transitions[index].delay_ms.get<int>()));
+            } else {
+                // For other types (strings, etc), show the raw JSON
+                delayEdit->setText(QString::fromStdString(m_doc.transitions[index].delay_ms.dump()));
+            }
+        }
+        
         ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
         connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit, updateTransitionLabel]() {
             QString delayText = delayEdit->text().trimmed();
