@@ -318,6 +318,14 @@ void MainWindow::on_actionSaveAs_triggered() {
 void MainWindow::populateProjectTree() {
     ui->projectTree->clear();
 
+    // Project Info (new section for name and comment)
+    auto *infoRoot = new QTreeWidgetItem({ tr("Project Info") });
+    QTreeWidgetItem* nameItem = new QTreeWidgetItem({ getNameDisplayText() });
+    QTreeWidgetItem* commentItem = new QTreeWidgetItem({ getCommentDisplayText() });
+    infoRoot->addChild(nameItem);
+    infoRoot->addChild(commentItem);
+    ui->projectTree->addTopLevelItem(infoRoot);
+
     // Inputs
     auto *inRoot = new QTreeWidgetItem({ tr("Inputs") });
     for (auto const& in : m_doc.inputs) {
@@ -551,9 +559,6 @@ void MainWindow::clearPropertyEditor() {
 }
 
 void MainWindow::on_projectTree_itemSelectionChanged() {
-    // — Don't clear or modify the console anymore —
-    // ui->codeEditor->clear();
-    // ui->codeEditor->setEnabled(false);
     clearPropertyEditor();
 
     auto items = ui->projectTree->selectedItems();
@@ -566,14 +571,46 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
     const QString category = parent->text(0);
     const int index = parent->indexOfChild(it);
 
-    // Add delete button at the bottom of form for all items
-    QPushButton* deleteButton = new QPushButton(tr("Delete"));
-    deleteButton->setIcon(QIcon::fromTheme("edit-delete"));
-    deleteButton->setStyleSheet("background-color: #ffaaaa; font-weight: bold;");
-    
-    connect(deleteButton, &QPushButton::clicked, this, [this, category, index]() {
-        deleteSelectedItem(category, index);
-    });
+    // Add delete button at the bottom of form for all items except Project Info
+    QPushButton* deleteButton = nullptr;
+    if (category != tr("Project Info")) {
+        deleteButton = new QPushButton(tr("Delete"));
+        deleteButton->setIcon(QIcon::fromTheme("edit-delete"));
+        deleteButton->setStyleSheet("background-color: #ffaaaa; font-weight: bold;");
+        
+        connect(deleteButton, &QPushButton::clicked, this, [this, category, index]() {
+            deleteSelectedItem(category, index);
+        });
+    }
+
+    // Handle Project Info items
+    if (category == tr("Project Info")) {
+        if (index == 0) {  // Name
+            // Extract just the name value from the display string
+            QString currentName = QString::fromStdString(m_doc.name);
+            
+            auto *nameEdit = new QLineEdit(currentName);
+            ui->formProperties->addRow(tr("Project Name:"), nameEdit);
+            connect(nameEdit, &QLineEdit::editingFinished, this, [this, it, nameEdit]() {
+                QString newName = nameEdit->text().trimmed();
+                m_doc.name = newName.toStdString();
+                updateNameTreeItem(it);
+            });
+        } else if (index == 1) {  // Comment
+            // Use a text area for comment editing
+            QString currentComment = QString::fromStdString(m_doc.comment);
+            
+            auto *commentEdit = new QPlainTextEdit(currentComment);
+            commentEdit->setMinimumHeight(100);
+            ui->formProperties->addRow(tr("Project Comment:"), commentEdit);
+            connect(commentEdit, &QPlainTextEdit::textChanged, this, [this, it, commentEdit]() {
+                QString newComment = commentEdit->toPlainText();
+                m_doc.comment = newComment.toStdString();
+                updateCommentTreeItem(it);
+            });
+        }
+        return;
+    }
 
     // — Inputs / Outputs: just a single name field
     if (category == tr("Inputs") || category == tr("Outputs")) {
@@ -591,7 +628,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         });
 
         // Add delete button at the end
-        ui->formProperties->addRow("", deleteButton);
+        if (deleteButton) {
+            ui->formProperties->addRow("", deleteButton);
+        }
         return;
     }
 
@@ -655,7 +694,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         });
 
         // Add delete button at the end
-        ui->formProperties->addRow("", deleteButton);
+        if (deleteButton) {
+            ui->formProperties->addRow("", deleteButton);
+        }
         return;
     }
 
@@ -723,7 +764,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         }
         
         // Add delete button at the end
-        ui->formProperties->addRow("", deleteButton);
+        if (deleteButton) {
+            ui->formProperties->addRow("", deleteButton);
+        }
         return;
     }
 
@@ -828,7 +871,9 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         }
 
         // Add delete button at the end
-        ui->formProperties->addRow("", deleteButton);
+        if (deleteButton) {
+            ui->formProperties->addRow("", deleteButton);
+        }
         return;
     }
 }
@@ -1760,4 +1805,20 @@ void MainWindow::updateVariableTreeItem(int index, QTreeWidgetItem* item) {
                          QString::fromStdString(var.init.dump()) + 
                          " (" + QString::fromStdString(var.type) + ")";
     item->setText(0, displayText);
+}
+
+QString MainWindow::getNameDisplayText() const {
+    return tr("Name: %1").arg(QString::fromStdString(m_doc.name.empty() ? "Untitled" : m_doc.name));
+}
+
+QString MainWindow::getCommentDisplayText() const {
+    return tr("Comment: %1").arg(QString::fromStdString(m_doc.comment.empty() ? "-" : m_doc.comment));
+}
+
+void MainWindow::updateNameTreeItem(QTreeWidgetItem* item) {
+    item->setText(0, getNameDisplayText());
+}
+
+void MainWindow::updateCommentTreeItem(QTreeWidgetItem* item) {
+    item->setText(0, getCommentDisplayText());
 }

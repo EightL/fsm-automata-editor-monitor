@@ -97,4 +97,9 @@ private:
     void updateTransitionVisual(int transitionIndex);
     void updateStateVisual(int stateIndex);
     void updateVariableTreeItem(int index, QTreeWidgetItem* item);
+
+    QString getNameDisplayText() const;
+    QString getCommentDisplayText() const; 
+    void updateNameTreeItem(QTreeWidgetItem* item);
+    void updateCommentTreeItem(QTreeWidgetItem* item);
 };
