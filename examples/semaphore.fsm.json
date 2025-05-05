@@ -1,0 +1,78 @@
+{
+    "name": "Semaphore",
+    "comment": "Simulates semaphore. Allows to change duration of green light, doesn't show green light until pedestrian signal.",
+    "inputs": [
+        "pedestrian_signal",
+        "set_green"
+    ],
+    "outputs": [
+        "red",
+        "orange",
+        "green"
+    ],
+    "variables": [
+        {
+            "name": "green_dura",
+            "type": "int",
+            "init": 1500
+        },
+        {
+            "name": "p_wait_signal",
+            "type": "int",
+            "init": 0
+        }
+    ],
+    "states": [
+        {
+            "id": "RED_L",
+            "initial": true,
+            "onEnter": "output(\"green\", 0);\noutput(\"red\", 1);\nif (defined(\"set_green\")) {\n    green_dura = atoi(valueof(\"set_green\"));\n}\nif (defined(\"pedestrian_signal\")) {\n    p_wait_signal = 1;\n}\n"
+        },
+        {
+            "id": "ORANGE_L",
+            "onEnter": "output(\"red\", 0);\noutput(\"orange\", 1);\nif (defined(\"set_green\")) {\n    green_dura = atoi(valueof(\"set_green\"));\n}\n"
+        },
+        {
+            "id": "GREEN_L",
+            "onEnter": "output(\"green\", 1);\noutput(\"orange\", 0);\np_wait_signal = 0;\nif (defined(\"set_green\")) {\n    green_dura = atoi(valueof(\"set_green\"));\n}\n"
+        }
+    ],
+    "transitions": [
+        {
+            "from": "RED_L",
+            "to": "ORANGE_L",
+            "guard": "valueof(\"p_wait_signal\") == 1",
+            "delay_ms": 4000
+        },
+        {
+            "from": "ORANGE_L",
+            "to": "GREEN_L",
+            "delay_ms": 150
+        },
+        {
+            "from": "GREEN_L",
+            "to": "RED_L",
+            "delay_ms": "green_dura"
+        },
+        {
+            "from": "RED_L",
+            "to": "RED_L",
+            "trigger": "set_green"
+        },
+        {
+            "from": "RED_L",
+            "to": "RED_L",
+            "trigger": "pedestrian_signal"
+        },
+        {
+            "from": "GREEN_L",
+            "to": "GREEN_L",
+            "trigger": "set_green"
+        },
+        {
+            "from": "ORANGE_L",
+            "to": "ORANGE_L",
+            "trigger": "set_green"
+        }
+    ]
+}
