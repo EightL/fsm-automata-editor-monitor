@@ -63,15 +63,15 @@ Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monit
 * Protokol je **čistý JSON přes UDP** (localhost, port 45454 ↔ 45455).
 * Interpreter pravidelně vysílá paket typu `"state"`:
 
-```json
+```jsonc
 {
-  "type":   "<string>", 
-  "seq":    "<integer>", 
-  "ts":     "<integer>", 
-  "state":  "<string>", 
-  "inputs": {  },  
-  "vars":   {  },  
-  "outputs":{  } 
+  "type":   "<string>",        // typ zprávy, např. "state"
+  "seq":    "<integer>",         // pořadové číslo, inkrement od 0/1
+  "ts":     "<integer>",         // timestamp v ms od 1.1.1970 UTC
+  "state":  "<string>",        // akt. stav automatu
+  "inputs": {  },             // mapování vstupů → hodnoty
+  "vars":   {  },             // mapování proměnných → hodnoty
+  "outputs":{  }              // mapování výstupů → hodnoty
 }
 ```
 
