@@ -118,17 +118,3 @@ void RuntimeClient::pollChannel() {
         emit stateReceived(snap);
     }
 }
-
-void RuntimeClient::inject(QString name, QString value) {
-    // Replace the direct function call with signal emission
-    emit logMessage(QString("Injected input %1 = %2").arg(name).arg(value));
-    
-    if (!m_channel) return;
-    nlohmann::json j = {
-        {"type",  "inject"},
-        {"name",  name.toStdString()},
-        {"value", value.toStdString()}
-    };
-    m_channel->send({ j.dump() });
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-}

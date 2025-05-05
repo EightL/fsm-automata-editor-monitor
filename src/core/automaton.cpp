@@ -127,6 +127,7 @@ bool Automaton::fireTransition(size_t transitionIndex,
     Context ctx{ m_vars, m_inputs, m_outputs, m_stateSince };
     m_states[m_active].onEnter(ctx);
     
+    m_inputs.clear();
     return true;
 }
 

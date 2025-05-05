@@ -41,10 +41,6 @@ public:
 
     void sendCustomMessage(const std::string& jsonMessage);
 
-public slots:
-    /// Inject an input from the GUI into the FSM
-    void inject(QString name, QString value);
-
 signals:
     /// Emitted whenever we receive a “state” JSON over UDP
     void stateReceived(StateSnapshot snapshot);
