@@ -1,0 +1,65 @@
+{
+    "name": "Float sum",
+    "comment": "Keeps increasing value of \"f\" float variable each second until it reaches value over 20",
+    "inputs": [
+        "in"
+    ],
+    "outputs": [
+        "res"
+    ],
+    "variables": [
+        {
+            "name": "f",
+            "type": "float",
+            "init": 3.1
+        },
+        {
+            "name": "float_timeout",
+            "type": "float",
+            "init": 553.7
+        }
+    ],
+    "states": [
+        {
+            "id": "END"
+        },
+        {
+            "id": "ACTIVE",
+            "onEnter": "f = f + 1.7;\noutput(\"res\", f);"
+        },
+        {
+            "id": "START",
+            "initial": true
+        },
+        {
+            "id": "ACTIVE2"
+        }
+    ],
+    "transitions": [
+        {
+            "from": "ACTIVE",
+            "to": "END",
+            "guard": "valueof(\"f\") > 20"
+        },
+        {
+            "from": "START",
+            "to": "ACTIVE",
+            "trigger": "in"
+        },
+        {
+            "from": "ACTIVE",
+            "to": "ACTIVE",
+            "trigger": "in"
+        },
+        {
+            "from": "ACTIVE",
+            "to": "ACTIVE2",
+            "delay_ms": "float_timeout"
+        },
+        {
+            "from": "ACTIVE2",
+            "to": "ACTIVE",
+            "delay_ms": 500
+        }
+    ]
+}
