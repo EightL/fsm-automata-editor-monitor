@@ -26,7 +26,7 @@
         {
             "id": "RED_L",
             "initial": true,
-            "onEnter": "output(\"green\", 0);\noutput(\"red\", 1);\nif (defined(\"set_green\")) {\n    green_dura = atoi(valueof(\"set_green\"));\n}\nif (defined(\"pedestrian_signal\")) {\n    p_wait_signal = 1;\n}\n"
+            "onEnter": "output(\"green\", 0);\noutput(\"red\", 1);\nif (defined(\"pedestrian_signal\")) {\n    p_wait_signal = 1;\n}\nif (defined(\"set_green\")) {\n    green_dura = atoi(valueof(\"set_green\"));\n}"
         },
         {
             "id": "ORANGE_L",
@@ -42,7 +42,7 @@
             "from": "RED_L",
             "to": "ORANGE_L",
             "guard": "valueof(\"p_wait_signal\") == 1",
-            "delay_ms": 4000
+            "delay_ms": 1000
         },
         {
             "from": "ORANGE_L",

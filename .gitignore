@@ -15,4 +15,5 @@
 Thumbs.db
 
 project_utils/
-src/generated/
+
+doxygen_warnings.log
