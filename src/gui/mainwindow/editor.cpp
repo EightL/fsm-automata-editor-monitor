@@ -58,7 +58,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             QString currentName = QString::fromStdString(m_doc.name);
             
             auto *nameEdit = new QLineEdit(currentName);
-            ui->formProperties->addRow(tr("Project Name:"), nameEdit);
+            ui->formProperties->addRow(tr("Automaton Name:"), nameEdit);
             connect(nameEdit, &QLineEdit::editingFinished, this, [this, it, nameEdit]() {
                 QString newName = nameEdit->text().trimmed();
                 m_doc.name = newName.toStdString();
@@ -70,7 +70,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             
             auto *commentEdit = new QPlainTextEdit(currentComment);
             commentEdit->setMinimumHeight(100);
-            ui->formProperties->addRow(tr("Project Comment:"), commentEdit);
+            ui->formProperties->addRow(tr("Comment:"), commentEdit);
             connect(commentEdit, &QPlainTextEdit::textChanged, this, [this, it, commentEdit]() {
                 QString newComment = commentEdit->toPlainText();
                 m_doc.comment = newComment.toStdString();
@@ -172,7 +172,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
     if (category == tr("States")) {
         // ID
         auto *idEdit = new QLineEdit(QString::fromStdString(m_doc.states[index].id));
-        ui->formProperties->addRow(tr("ID:"), idEdit);
+        ui->formProperties->addRow(tr("Name:"), idEdit);
         connect(idEdit, &QLineEdit::editingFinished, this, [this, index, it, idEdit]() {
             QString newId = idEdit->text().trimmed();
             if (newId.isEmpty()) return;
@@ -220,7 +220,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
 
         // onEnter action - use a separate editor in the property panel now
         auto *actionEdit = new QPlainTextEdit(QString::fromStdString(m_doc.states[index].onEnter));
-        actionEdit->setPlaceholderText(tr("C/C++ snippet…"));
+        actionEdit->setPlaceholderText(tr("JS expression"));
         ui->formProperties->addRow(tr("On Enter:"), actionEdit);
         connect(actionEdit, &QPlainTextEdit::textChanged, this, [this, index, actionEdit]() {
             m_doc.states[index].onEnter = actionEdit->toPlainText().toStdString();
@@ -268,6 +268,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
 
         // trigger (input event)
         auto *trigEdit = new QLineEdit(QString::fromStdString(trn.trigger));
+        trigEdit->setPlaceholderText(tr("Name of input"));
         ui->formProperties->addRow(tr("Trigger:"), trigEdit);
         connect(trigEdit, &QLineEdit::editingFinished, this, [this, index, trigEdit, updateTransitionLabel]() {
             QString newTrigger = trigEdit->text().trimmed();
@@ -277,6 +278,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
 
         // guard
         auto *guardEdit = new QLineEdit(QString::fromStdString(trn.guard));
+        guardEdit->setPlaceholderText(tr("JS condition expression..."));
         ui->formProperties->addRow(tr("Guard:"), guardEdit);
         connect(guardEdit, &QLineEdit::editingFinished, this, [this, index, guardEdit, updateTransitionLabel]() {
             m_doc.transitions[index].guard = guardEdit->text().toStdString();
@@ -284,8 +286,8 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
         });
 
         // delay (as JSON)
-        QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
-        delayEdit->setPlaceholderText(tr("Leave empty for null"));
+        auto* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
+        delayEdit->setPlaceholderText(tr("Time in ms, \"variable\" or leave empty"));
         
         // Set the current delay value if it exists
         if (!m_doc.transitions[index].delay_ms.is_null()) {
@@ -298,7 +300,7 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
             }
         }
         
-        ui->formProperties->addRow(tr("Delay (ms or var):"), delayEdit);
+        ui->formProperties->addRow(tr("Delay:"), delayEdit);
         connect(delayEdit, &QLineEdit::editingFinished, this, [this, index, delayEdit, updateTransitionLabel]() {
             QString delayText = delayEdit->text().trimmed();
             if (delayText.isEmpty()) {

@@ -1,6 +1,6 @@
 {
-    "name": "",
-    "comment": "",
+    "name": "TOF",
+    "comment": "Timer to off, umí nastavit timeout a na požádání sdělit zbývající čas timeru.",
     "inputs": [
         "in",
         "set_to",
@@ -21,15 +21,15 @@
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"out\", 0); output(\"rt\", 0);"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\")); \n} \noutput(\"out\", 0);\noutput(\"rt\", 0);"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"out\", 1); output(\"rt\", timeout);"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\"));\n}\noutput(\"out\", 1);\noutput(\"rt\", timeout);"
         },
         {
             "id": "TIMING",
-            "onEnter": "if (defined(\"set_to\")) { timeout = atoi(valueof(\"set_to\")); } output(\"rt\", timeout - elapsed());"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\"));\n}\noutput(\"rt\", timeout - elapsed());"
         }
     ],
     "transitions": [

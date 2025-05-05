@@ -24,7 +24,7 @@ void MainWindow::addState()
     // ID field
     QFormLayout* form = new QFormLayout();
     QLineEdit* idEdit = new QLineEdit();
-    form->addRow(tr("ID:"), idEdit);
+    form->addRow(tr("Name:"), idEdit);
     
     // Initial state checkbox
     QCheckBox* initialCheck = new QCheckBox();
@@ -34,7 +34,7 @@ void MainWindow::addState()
     // onEnter script
     QLabel* scriptLabel = new QLabel(tr("On Enter:"));
     QPlainTextEdit* scriptEdit = new QPlainTextEdit();
-    scriptEdit->setPlaceholderText(tr("C/C++ snippet..."));
+    scriptEdit->setPlaceholderText(tr("JS expression"));
     scriptEdit->setMinimumHeight(100);
     
     // Add to layout
@@ -134,17 +134,18 @@ void MainWindow::addTransition()
     
     // Trigger field
     QLineEdit* triggerEdit = new QLineEdit();
+    triggerEdit->setPlaceholderText(tr("Name of input"));
     form->addRow(tr("Trigger:"), triggerEdit);
     
     // Guard condition
     QLineEdit* guardEdit = new QLineEdit();
-    guardEdit->setPlaceholderText(tr("C/C++ condition expression..."));
+    guardEdit->setPlaceholderText(tr("JS condition expression..."));
     form->addRow(tr("Guard:"), guardEdit);
     
     // Delay field
     QLineEdit* delayEdit = new QLineEdit();  // Empty by default (will be treated as null)
-    delayEdit->setPlaceholderText(tr("Leave empty for null"));
-    form->addRow(tr("Delay (ms or var):"), delayEdit);
+    delayEdit->setPlaceholderText(tr("Time in ms, \"variable\" or leave empty"));
+    form->addRow(tr("Delay:"), delayEdit);
     
     // Dialog buttons
     QDialogButtonBox* buttons = new QDialogButtonBox(

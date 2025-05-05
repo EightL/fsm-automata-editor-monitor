@@ -1,6 +1,6 @@
 {
-    "name": "",
-    "comment": "",
+    "name": "TOF5s",
+    "comment": "Timer to off, jednoduchá verze.",
     "inputs": [
         "in"
     ],
