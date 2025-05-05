@@ -24,7 +24,7 @@ void MainWindow::visualizeFsm()
     QApplication::processEvents();
     
     // Track which states are new (need automatic positioning)
-    QSet<QString> newStateIds;  // Changed from std::string to QString
+    QSet<QString> newStateIds;
     
     // Create states, reusing positions for existing states
     for (const auto& state : m_doc.states) {
@@ -40,12 +40,14 @@ void MainWindow::visualizeFsm()
             item->setPos(statePositions[state.id]);
         } else {
             // Mark as new state needing position assignment
-            newStateIds.insert(QString::fromStdString(state.id));  // Convert to QString
+            newStateIds.insert(QString::fromStdString(state.id));
         }
     }
     
-    // Only lay out new states
-    layoutNewStateElements(newStateIds);
+    // Only lay out new states - but ONLY if there are any new states
+    if (!newStateIds.isEmpty()) {
+        layoutNewStateElements(newStateIds);
+    }
     
     // Process any pending position changes
     QApplication::processEvents();
@@ -123,53 +125,27 @@ void MainWindow::clearFsmVisualization()
     m_scene->clear();
 }
 
-void MainWindow::layoutFsmElements()
-{
-    // Simple circular layout
-    const int states = m_stateItems.size();
-    if (states == 0) return;
-    
-    // For a single state, place it in the center
-    if (states == 1) {
-        m_stateItems.first()->setPos(0, 0);
-        return;
-    }
-    
-    // For multiple states, arrange in a circle
-    const qreal radius = 150.0;
-    int i = 0;
-    
-    for (auto* item : m_stateItems) {
-        qreal angle = 2.0 * M_PI * i / states;
-        qreal x = radius * std::cos(angle);
-        qreal y = radius * std::sin(angle);
-        item->setPos(x, y);
-        i++;
-    }
-}
-
 // Add this new method to position only new states
 void MainWindow::layoutNewStateElements(const QSet<QString>& newStateIds)
 {
     if (newStateIds.isEmpty()) return;
-    
-    // If all states are new, use the regular circular layout
-    if (newStateIds.size() == m_stateItems.size()) {
-        layoutFsmElements();
-        return;
-    }
     
     // Calculate bounding rectangle of existing states
     QRectF existingBounds;
     bool hasExisting = false;
     
     for (auto it = m_stateItems.begin(); it != m_stateItems.end(); ++it) {
-        if (!newStateIds.contains(QString::fromStdString(it.key()))) {  // Convert key to QString
+        // Skip new states when calculating existing bounds
+        if (!newStateIds.contains(QString::fromStdString(it.key()))) {
+            QPointF pos = it.value()->pos();
+            QSizeF size(StateItem::RADIUS * 2, StateItem::RADIUS * 2);
+            QRectF itemRect(pos - QPointF(StateItem::RADIUS, StateItem::RADIUS), size);
+            
             if (!hasExisting) {
-                existingBounds = QRectF(it.value()->pos(), QSizeF(0, 0));
+                existingBounds = itemRect;
                 hasExisting = true;
             } else {
-                existingBounds = existingBounds.united(QRectF(it.value()->pos(), QSizeF(0, 0)));
+                existingBounds = existingBounds.united(itemRect);
             }
         }
     }

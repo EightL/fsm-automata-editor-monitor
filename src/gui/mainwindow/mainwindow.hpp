@@ -82,7 +82,6 @@ private:
     // FSM visualization
     void visualizeFsm();
     void clearFsmVisualization();
-    void layoutFsmElements();
     void layoutNewStateElements(const QSet<QString>& newStateIds);
 
     // Add these method declarations if they don't exist:
