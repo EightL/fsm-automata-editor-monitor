@@ -22,9 +22,7 @@ Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monit
 
 ### Class diagram
 
-<img src="./diagrams/class.svg"
-     style="background-color: white;"
-     alt="Class Diagram" />
+![class](/diagrams/class.png)
 
 
 * **GUI vrstva** (adresář `ui_qt/`):
@@ -44,25 +42,20 @@ Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monit
 
 ### Core funkcionalita
 
-<img src="./diagrams/core.svg"
-     style="background-color: white;"
-     alt="State Diagram – core (interpret)" />
+![core](/diagrams/core.png)
 
 - Stavový diagram samotného interpretu (fronta vstupů → výběr přechodu → on‑enter akce → plánování timerů → čekání)
 
 ### GUI funkcionalita
 
-<img src="./diagrams/gui.svg"
-     style="background-color: white;"
-     alt="State Diagram – GUI" />
-
+![gui](/diagrams/gui.png)
 - Vysvětluje režimy Editor ⇆ Monitor, signal‑slot propojení a životní cyklus Build & Run
 
 ### App GUI (Project tree editing)
-![idk](/diagrams/app.png)
+![app](/diagrams/app.png)
 
 ### App GUI (Monitoring)
-![idk](/diagrams/app2.png)
+![app2](/diagrams/app2.png)
 
 
 ### 3.  Komunikace GUI ↔ Interpret
@@ -73,12 +66,12 @@ Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monit
 ```json
 {
   "type":   "<string>",        // typ zprávy, např. "state"
-  "seq":    <integer>,         // pořadové číslo, inkrement od 0/1
-  "ts":     <integer>,         // timestamp v ms od 1.1.1970 UTC
+  "seq":    "<integer>",         // pořadové číslo, inkrement od 0/1
+  "ts":     "<integer>",         // timestamp v ms od 1.1.1970 UTC
   "state":  "<string>",        // akt. stav automatu
-  "inputs": { … },             // mapování vstupů → hodnoty
-  "vars":   { … },             // mapování proměnných → hodnoty
-  "outputs":{ … }              // mapování výstupů → hodnoty
+  "inputs": {  },             // mapování vstupů → hodnoty
+  "vars":   {  },             // mapování proměnných → hodnoty
+  "outputs":{  }              // mapování výstupů → hodnoty
 }
 ```
 
@@ -96,17 +89,28 @@ Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monit
     { "name":"timeout", "type":"int", "init":5000 }
   ],
   "states": [
-    { "id":"IDLE",   "initial":true,
-      "onEnter":"output(\"out\",0); output(\"rt\",0);" },
-    …
+    {
+      "id": "IDLE",
+      "initial": true,
+      "onEnter": "output(\"out\",0); output(\"rt\",0);"
+    },
+
   ],
   "transitions": [
-    { "from":"IDLE", "to":"ACTIVE",
-      "trigger":"in", "guard":"atoi(valueof(\"in\")) == 1" },
-    { "from":"TIMING","to":"IDLE",
-      "delay_ms":"timeout" }               // proměnné zpoždění
+    {
+      "from":    "IDLE",
+      "to":      "ACTIVE",
+      "trigger": "in",
+      "guard":   "atoi(valueof(\"in\")) == 1"
+    },
+    {
+      "from":     "TIMING",
+      "to":       "IDLE",
+      "delay_ms": "timeout"    // proměnné zpoždění
+    }
   ]
 }
+
 ```
 
 Validator v `persistence_bridge.cpp` kontroluje, zda `trigger` existuje mezi vstupy, jestli stráž odkazuje pouze na deklarované symboly apod. Při nesrovnalosti zobrazí GUI **žlutý warning bar**.
