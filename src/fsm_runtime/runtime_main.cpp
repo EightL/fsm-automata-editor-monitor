@@ -115,10 +115,6 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
                 // 3) execute and pull back changes
                 if (fn.isCallable()) fn.call();
                 pullBack(eng, ctx);
-
-                // 4) log state change
-                std::cout << "{\"type\":\"state\",\"state\":\""
-                          << stateId << "\"}\n";
             }
         }, st.initial);
     }
