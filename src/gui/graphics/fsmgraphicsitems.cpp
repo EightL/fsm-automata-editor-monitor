@@ -1,3 +1,12 @@
+/**
+ * @file   fsmgraphicsitems.cpp
+ * @brief  Implements the graphical representation classes for FSM visualization.
+ *         Provides visual elements for states and transitions in the FSM editor.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include "fsmgraphicsitems.hpp"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
@@ -5,6 +14,14 @@
 #include <QTextOption>
 #include <QTimer>
 
+// -----------------------------------------------------------------------------
+// StateItem implementation
+// -----------------------------------------------------------------------------
+
+/**
+ * Constructor initializes a circular state with specified ID and initial status.
+ * Sets up basic visual properties and enables interaction flags.
+ */
 StateItem::StateItem(const QString& id, bool isInitial, QGraphicsItem* parent)
     : QGraphicsEllipseItem(-RADIUS, -RADIUS, 2*RADIUS, 2*RADIUS, parent)
     , m_id(id), m_isInitial(isInitial)
@@ -20,12 +37,18 @@ StateItem::StateItem(const QString& id, bool isInitial, QGraphicsItem* parent)
              QGraphicsItem::ItemSendsGeometryChanges);
 }
 
+/**
+ * Updates the initial state status and requests a visual update.
+ */
 void StateItem::setInitial(bool isInitial)
 {
     m_isInitial = isInitial;
     update();
 }
 
+/**
+ * Overrides boundingRect to include extra space for the initial state marker.
+ */
 QRectF StateItem::boundingRect() const
 {
     QRectF baseRect = QGraphicsEllipseItem::boundingRect();
@@ -33,6 +56,9 @@ QRectF StateItem::boundingRect() const
     return baseRect.adjusted(-5, -5, 5, 5);
 }
 
+/**
+ * Renders the state circle, label, and optional initial state marker.
+ */
 void StateItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
     QGraphicsEllipseItem::paint(painter, option, widget);
@@ -49,6 +75,10 @@ void StateItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
     }
 }
 
+/**
+ * Handles position changes and updates all connected transitions accordingly.
+ * Uses a flag to prevent recursive updates from transitions.
+ */
 QVariant StateItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     QVariant result = QGraphicsEllipseItem::itemChange(change, value);
@@ -81,6 +111,9 @@ QVariant StateItem::itemChange(GraphicsItemChange change, const QVariant &value)
     return result;
 }
 
+/**
+ * Registers an incoming transition with this state if it's not already present.
+ */
 void StateItem::addIncomingTransition(TransitionItem* transition)
 {
     if (transition && !m_incomingTransitions.contains(transition)) {
@@ -88,6 +121,9 @@ void StateItem::addIncomingTransition(TransitionItem* transition)
     }
 }
 
+/**
+ * Registers an outgoing transition with this state if it's not already present.
+ */
 void StateItem::addOutgoingTransition(TransitionItem* transition)
 {
     if (transition && !m_outgoingTransitions.contains(transition)) {
@@ -95,6 +131,9 @@ void StateItem::addOutgoingTransition(TransitionItem* transition)
     }
 }
 
+/**
+ * Removes an incoming transition reference from this state.
+ */
 void StateItem::removeIncomingTransition(TransitionItem* transition)
 {
     if (transition && m_incomingTransitions.contains(transition)) {
@@ -102,6 +141,9 @@ void StateItem::removeIncomingTransition(TransitionItem* transition)
     }
 }
 
+/**
+ * Removes an outgoing transition reference from this state.
+ */
 void StateItem::removeOutgoingTransition(TransitionItem* transition)
 {
     if (transition && m_outgoingTransitions.contains(transition)) {
@@ -109,6 +151,10 @@ void StateItem::removeOutgoingTransition(TransitionItem* transition)
     }
 }
 
+/**
+ * Destructor safely notifies all connected transitions that this state
+ * is being destroyed to prevent dangling pointers.
+ */
 StateItem::~StateItem()
 {
     // Create a copy of the sets since we'll be modifying them during iteration
@@ -137,6 +183,14 @@ StateItem::~StateItem()
     }
 }
 
+// -----------------------------------------------------------------------------
+// TransitionItem implementation
+// -----------------------------------------------------------------------------
+
+/**
+ * Constructor creates a transition between two states with optional labels.
+ * Registers itself with both source and target states.
+ */
 TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState, 
                       const QString& trigger, const QString& guard,
                       const QString& delay, int offsetIndex, QGraphicsItem* parent)
@@ -156,6 +210,11 @@ TransitionItem::TransitionItem(StateItem* fromState, StateItem* toState,
         m_toState->addIncomingTransition(this);
     }
 }
+
+/**
+ * Handles item changes, particularly scene changes to ensure initial position.
+ * Uses a single-shot timer to update position after the scene is fully set up.
+ */
 QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == QGraphicsItem::ItemSceneHasChanged && scene() && !m_isBeingDestroyed) {
@@ -170,6 +229,10 @@ QVariant TransitionItem::itemChange(GraphicsItemChange change, const QVariant &v
     return QGraphicsPathItem::itemChange(change, value);
 }
 
+/**
+ * Called when a connected state is being destroyed.
+ * Nullifies the reference to prevent dangling pointers.
+ */
 void TransitionItem::stateDestroyed(StateItem* state)
 {
     // Just null out the pointer without trying to deregister
@@ -181,6 +244,10 @@ void TransitionItem::stateDestroyed(StateItem* state)
     }
 }
 
+/**
+ * Destructor unregisters from connected states to maintain referential integrity.
+ * Sets a flag to prevent recursive operations during destruction.
+ */
 TransitionItem::~TransitionItem()
 {
     // Set the flag first to prevent any new operations
@@ -207,6 +274,10 @@ TransitionItem::~TransitionItem()
     }
 }
 
+/**
+ * Updates the transition's visual path based on connected states' positions.
+ * Handles both regular transitions and self-transitions (loops).
+ */
 void TransitionItem::updatePosition()
 {
     if (m_isBeingDestroyed) {
@@ -235,6 +306,10 @@ void TransitionItem::updatePosition()
     }
 }
 
+/**
+ * Creates an arrow path between two points, handling both regular transitions
+ * and self-transitions (loops) with different visual representations.
+ */
 QPainterPath TransitionItem::createArrowPath(const QPointF& start, const QPointF& end)
 {
     QPainterPath path;
@@ -316,12 +391,19 @@ QPainterPath TransitionItem::createArrowPath(const QPointF& start, const QPointF
     return path;
 }
 
+/**
+ * Extends the bounding rectangle to include space for transition labels.
+ */
 QRectF TransitionItem::boundingRect() const
 {
     // Add extra space for the label
     return QGraphicsPathItem::boundingRect().adjusted(-30, -30, 30, 30);
 }
 
+/**
+ * Draws the transition arrow and label with appropriate positioning.
+ * Handles both regular transitions and self-transitions with different label placement.
+ */
 void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
     QGraphicsPathItem::paint(painter, option, widget);
@@ -413,6 +495,10 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
     painter->drawText(textRect, labelText, textOption);
 }
 
+/**
+ * Defines the shape used for hit detection and selection.
+ * Includes both the arrow path and the label box in the selectable area.
+ */
 QPainterPath TransitionItem::shape() const
 {
     // Start with the base arrow path

@@ -1,3 +1,12 @@
+/**
+ * @file   runtime_main.cpp
+ * @brief  Implements a standalone runtime for FSM execution from JSON definition files.
+ *         Handles loading, parsing, automaton construction, and I/O communication.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <chrono>
 #include <csignal>
 #include <fstream>
@@ -31,14 +40,26 @@ using nlohmann::json;
 // -----------------------------------------------------------------------------
 namespace {
 
-// Map textual variable‑type → enum
+/**
+ * Maps textual variable type names to core_fsm::Variable::Type enums.
+ * Supports "int", "float", and defaults to string for other types.
+ * 
+ * @param t The textual representation of the variable type
+ * @return The corresponding Variable::Type enum value
+ */
 static core_fsm::Variable::Type mapVarType(const std::string& t) {
     if (t == "int")   return core_fsm::Variable::Type::Int;
     if (t == "float") return core_fsm::Variable::Type::Double;
     return core_fsm::Variable::Type::String;
 }
 
-// Build an Automaton from the persistence DTO (limited subset).
+/**
+ * Constructs an Automaton from a parsed FSM document.
+ * Handles variables, states, and transitions with their guards and actions.
+ * 
+ * @param doc The parsed FSM document containing the state machine definition
+ * @param fsm The Automaton instance to configure
+ */
 static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc, 
                               core_fsm::Automaton& fsm)
 {
@@ -146,7 +167,12 @@ static void buildFromDocument(const core_fsm::persistence::FsmDocument& doc,
     }
 }
 
-// Add this helper function to check if stdin has data without blocking
+/**
+ * Checks if stdin has data available to read without blocking.
+ * Uses select() with zero timeout to perform a non-blocking poll.
+ * 
+ * @return true if data is available on stdin, false otherwise
+ */
 bool stdinHasData()
 {
     fd_set rfds;
@@ -161,12 +187,33 @@ bool stdinHasData()
 // -----------------------------------------------------------------------------
 // Ctrl‑C handling – set an atomic flag from signal‑handler context
 // -----------------------------------------------------------------------------
+
+/**
+ * Global flag for graceful shutdown, modified by signal handler.
+ * Using atomic_bool to ensure thread-safe access.
+ */
 static std::atomic_bool g_stop{false};
+
+/**
+ * Signal handler for SIGINT (Ctrl+C).
+ * Sets the global atomic flag to indicate that the program should terminate.
+ * 
+ * @param signal The signal number (unused)
+ */
 static void onSigInt(int){ g_stop = true; }
 
 // -----------------------------------------------------------------------------
 // MAIN
 // -----------------------------------------------------------------------------
+
+/**
+ * Main entry point for the FSM runtime.
+ * Loads an FSM definition, constructs the automaton, and runs it with IO handling.
+ * 
+ * @param argc Number of command-line arguments
+ * @param argv Array of command-line argument strings
+ * @return 0 on success, 1 on error
+ */
 int main(int argc, char** argv)
 {
     QCoreApplication app(argc, argv);
@@ -175,10 +222,11 @@ int main(int argc, char** argv)
     const std::string peerAddr = (argc > 3 ? argv[3] : "127.0.0.1:45455");
 
     // 1) Load & build ---------------------------------------------------------
+    // Parse the JSON FSM definition and construct the automaton
     core_fsm::persistence::FsmDocument doc;
     std::string err;
     if (!core_fsm::persistence::loadFile(fsmPath, doc, &err)) {
-        std::cerr << "[fsm_runtime] ERROR: cannot load ‘" << fsmPath << "’ – " << err << "\n";
+        std::cerr << "[fsm_runtime] ERROR: cannot load '" << fsmPath << "' – " << err << "\n";
         return 1;
     }
 
@@ -186,17 +234,21 @@ int main(int argc, char** argv)
     buildFromDocument(doc, fsm);
 
     // 2) Networking -----------------------------------------------------------
+    // Set up UDP communication channel for remote control and monitoring
     auto chan = std::make_shared<io_bridge::UdpChannel>(bindAddr, peerAddr);
     fsm.attachChannel(chan);   // Automaton will take care of state broadcasts
 
     // 3) Run interpreter in worker thread ------------------------------------
+    // Start FSM execution in a separate thread
     std::thread runner([&]{ fsm.run(); });
 
     // 4) Event loop: forward UDP → injectInput  (+ optional stdin for testing)
+    // Set up signal handling for graceful termination
     std::signal(SIGINT, onSigInt);
 
     while (!g_stop) {
         // 4a) UDP -------------------------------------------------------------
+        // Process incoming UDP packets (remote inputs and commands)
         io_bridge::Packet p;
         while (chan->poll(p)) {
             auto j = json::parse(p.json, nullptr, false);
@@ -208,7 +260,7 @@ int main(int argc, char** argv)
                                 j.at("value").get<std::string>());
             } 
             else if (type == "setVar") {
-                fsm.setVariable(j.at("name").get<std::string>(), j.at("value").get<std::string>());    // you’ll need to add this to your Automaton API
+                fsm.setVariable(j.at("name").get<std::string>(), j.at("value").get<std::string>());
             }
             else if (type == "shutdown") {
                 g_stop = true;
@@ -216,7 +268,7 @@ int main(int argc, char** argv)
         }
 
         // 4b) Stdin -----------------------------------------------------------
-        // Replace blocking stdin read with non-blocking check
+        // Allow local input injection via terminal for testing
         if (stdinHasData()) {
             std::string line;
             std::getline(std::cin, line);
@@ -232,6 +284,7 @@ int main(int argc, char** argv)
     }
 
     // 5) Graceful shutdown ----------------------------------------------------
+    // Stop the FSM and wait for the worker thread to complete
     fsm.requestStop();
     runner.join();
     return 0;

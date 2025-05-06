@@ -1,7 +1,15 @@
-# ---------------------------------------------------------------------------
-#  Generic Makefile for the FSM‑Demo project
-#  – complies with the «ICP Project» hand‑in specification –
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# @file   Makefile
+# @brief  Generic Makefile for the FSM editor project.
+#
+# Provides build targets for compiling the project, running the GUI application,
+# executing tests, generating documentation, and creating submission packages.
+# Configures CMake build with proper options and provides convenient shortcuts.
+#
+# @author Martin Ševčík (xsevcim00)
+# @author Jakub Lůčný (xlucnyj00)
+# @date   2025-05-06
+# -----------------------------------------------------------------------------
 
 # ---------- configurable knobs ---------------------------------------------
 BUILD_DIR   ?= build
@@ -25,20 +33,12 @@ build:
 	$(CMAKE) --build $(BUILD_DIR) -- -j$(JOBS)
 
 # ---------------------------------------------------------------------------
-#  Run the demo – spec requires a ‘make run’ convenience target
+#  Run the demo – spec requires a 'make run' convenience target
 # ---------------------------------------------------------------------------
 .PHONY: run
 run: build
 	@echo "\n==[ Launch GUI client ]=============================================="
 	$(BIN_DIR)/gui_qt_client_exec
-
-# ---------------------------------------------------------------------------
-#  Tests – expects you added ENABLE_TESTING() + add_test() in CMake
-# ---------------------------------------------------------------------------
-.PHONY: test
-test: build
-	$(CMAKE) --build $(BUILD_DIR) --target test
-	ctest --test-dir $(BUILD_DIR) --output-on-failure
 
 # ---------------------------------------------------------------------------
 #  Doxygen documentation (requires a root‑level Doxyfile, SOURCE_BROWSER=YES)
@@ -48,13 +48,6 @@ doxygen:
 	@echo "\n==[ Doxygen ]========================================================="
 	doxygen Doxyfile
 	@echo "HTML documentation generated in $(DOC_DIR)/html"
-
-# ---------------------------------------------------------------------------
-#  Local “install” staging directory (never shipped, handy for manual checks)
-# ---------------------------------------------------------------------------
-.PHONY: install
-install: build
-	$(CMAKE) --install $(BUILD_DIR) --prefix $(BUILD_DIR)/install
 
 # ---------------------------------------------------------------------------
 #  Clean every generated file the spec tells us not to ship
@@ -73,10 +66,10 @@ clean:
 pack: clean
 	@echo "\n==[ Creating submission archive ]===================================="
 	zip -qr $(PACK_NAME).zip \
-	    . -x "$(BUILD_DIR)/*" "$(DOC_DIR)/html/*" "*.zip" "*.tar.gz"
-	@echo "Wrote $(PACK_NAME).zip  – remember to rename to xname01‑xname02.zip"
+		. -x "$(BUILD_DIR)/*" "$(DOC_DIR)/html/*" "*.zip" "*.tar.gz"
+	@echo "Wrote $(PACK_NAME).zip  - remember to rename to xsevcim00-xlucnyj00.zip"
 
 # ---------------------------------------------------------------------------
 #  Convenience phony to ensure goals that are *always* re‑evaluated
 # ---------------------------------------------------------------------------
-.PHONY: build run test doxygen install pack
+.PHONY: build run doxygen pack

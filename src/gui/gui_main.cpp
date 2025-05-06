@@ -1,4 +1,12 @@
-// ui_qt/gui_main.cpp
+/**
+ * @file   gui_main.cpp
+ * @brief  Main entry point for the FSM Editor GUI application.
+ *         Initializes the Qt application, sets up styling, and creates the main window.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <QApplication>
 #include "mainwindow/mainwindow.hpp"
 
@@ -6,13 +14,8 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    /* 1) Always use Fusion – identical on all platforms,
-          and easy to recolour.                                       */
     QApplication::setStyle("Fusion");
 
-    /* 2) Build an explicit light palette and apply it once.
-          (If you want a switch later, keep a copy of the old palette
-           and swap them on demand.)                                  */
     QPalette light;
     light.setColor(QPalette::Window,           QColor(0xf7,0xf7,0xf7));
     light.setColor(QPalette::WindowText,       Qt::black);

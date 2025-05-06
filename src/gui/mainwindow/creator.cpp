@@ -1,3 +1,13 @@
+/**
+ * @file   creator.cpp
+ * @brief  Implements dialog-based creation functionality for FSM elements.
+ *         Provides methods for adding states, transitions, variables, inputs, and outputs
+ *         through interactive dialog interfaces.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QLineEdit>
@@ -14,6 +24,10 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
+/**
+ * Creates a dialog for adding a new state to the FSM.
+ * Handles validation, creation, and UI updates after adding the state.
+ */
 void MainWindow::addState()
 {
     // Create a custom dialog with the same fields as the property editor
@@ -100,6 +114,11 @@ void MainWindow::addState()
     }
 }
 
+/**
+ * Creates a dialog for adding a new transition between states.
+ * Validates inputs, creates the transition, and updates the visualization.
+ * Requires at least one state to exist in the FSM.
+ */
 void MainWindow::addTransition()
 {
     if (m_doc.states.empty()) {
@@ -201,6 +220,11 @@ void MainWindow::addTransition()
     }
 }
 
+/**
+ * Creates a dialog for adding a new variable to the FSM.
+ * Allows selection of type (int, float, string) and initial value.
+ * Validates input for uniqueness and creates the variable.
+ */
 void MainWindow::addVariable()
 {
     // Create dialog
@@ -290,6 +314,11 @@ void MainWindow::addVariable()
     }
 }
 
+/**
+ * Creates a dialog for adding a new input to the FSM.
+ * Validates the input name for uniqueness and adds it to the model.
+ * Inputs can be referenced as triggers in transitions.
+ */
 void MainWindow::addInput()
 {
     // Create dialog
@@ -344,6 +373,11 @@ void MainWindow::addInput()
     }
 }
 
+/**
+ * Creates a dialog for adding a new output to the FSM.
+ * Validates the output name for uniqueness and adds it to the model.
+ * Outputs can be set by states' onEnter scripts.
+ */
 void MainWindow::addOutput()
 {
     // Create dialog

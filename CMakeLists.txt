@@ -1,28 +1,41 @@
+# -----------------------------------------------------------------------------
+# @file   CMakeLists.txt
+# @brief  Top-level CMake configuration for the FSM editor project.
+#
+# Sets up basic project requirements, finds dependencies, and includes
+# three main components: core FSM library, GUI editor, and runtime interpreter.
+#
+# @author Martin Ševčík (xsevcim00)
+# @author Jakub Lůčný (xlucnyj00)
+# @date   2025-05-06
+# -----------------------------------------------------------------------------
+
 cmake_minimum_required(VERSION 3.15)
 project(fsm_demo LANGUAGES CXX)
 
+# Set C++17 as required standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # For tools like clang-tidy
 
 set(EXTERNAL_DIR "${CMAKE_SOURCE_DIR}/external")
 
-# put everything in build/bin
+# Configure all output binaries to a single location for easier testing
 foreach(dir RUNTIME LIBRARY ARCHIVE)
     set(CMAKE_${dir}_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endforeach()
 
-# Qt5
+# Find Qt5 dependencies - core functionality, UI widgets, and QML
 list(APPEND CMAKE_PREFIX_PATH "/usr/local/opt/qt@5")
 find_package(Qt5 REQUIRED COMPONENTS Core Widgets Qml)
 
-# pthread
+# Find threading library for concurrent operations
 find_package(Threads REQUIRED)
 
-# external libs (header-only JSON)
+# Find external JSON library for data serialization
 find_package(nlohmann_json CONFIG REQUIRED)
 
-# sub-projects
-add_subdirectory(src/core)
-add_subdirectory(src/gui)
-add_subdirectory(src/fsm_runtime)
+# Include the three main components of the project
+add_subdirectory(src/core)        # FSM core functionality library
+add_subdirectory(src/gui)         # Qt-based graphical editor
+add_subdirectory(src/fsm_runtime) # State machine interpreter

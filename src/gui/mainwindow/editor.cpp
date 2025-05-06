@@ -1,3 +1,13 @@
+/**
+ * @file   editor.cpp
+ * @brief  Implements property editing functionality for FSM elements.
+ *         Provides dynamic form generation for editing attributes of states,
+ *         transitions, variables, inputs, and outputs.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTableWidgetItem>
@@ -19,6 +29,10 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
+/**
+ * Removes all fields from the property editor form.
+ * Called whenever selection changes or nothing is selected.
+ */
 void MainWindow::clearPropertyEditor() {
     // remove every row from the QFormLayout
     while (ui->formProperties->rowCount() > 0) {
@@ -26,6 +40,12 @@ void MainWindow::clearPropertyEditor() {
     }
 }
 
+/**
+ * Updates the property editor form with fields relevant to the currently
+ * selected item in the project tree. Dynamically creates appropriate
+ * editors based on the item type and establishes connections to update
+ * the underlying model when edit values change.
+ */
 void MainWindow::on_projectTree_itemSelectionChanged() {
     clearPropertyEditor();
 
@@ -360,6 +380,14 @@ void MainWindow::on_projectTree_itemSelectionChanged() {
     }
 }
 
+/**
+ * Handles deletion of FSM elements with confirmation.
+ * 
+ * Displays a confirmation dialog and then removes the selected element
+ * from the model. For states, also removes all associated transitions.
+ * Updates the project tree and visualization after deletion.
+ * 
+ */
 void MainWindow::deleteSelectedItem(const QString& category, int index) {
     // Confirm deletion
     QMessageBox::StandardButton reply = QMessageBox::question(
@@ -429,7 +457,12 @@ void MainWindow::deleteSelectedItem(const QString& category, int index) {
     clearPropertyEditor();
 }
 
-// Add this helper function to your MainWindow class
+/**
+ * Updates the display text for a variable item in the project tree.
+ * 
+ * Formats the variable information to show name, value, and type.
+ * 
+ */
 void MainWindow::updateVariableTreeItem(int index, QTreeWidgetItem* item) {
     const auto& var = m_doc.variables[index];
     QString displayText = QString::fromStdString(var.name) + 
@@ -439,6 +472,12 @@ void MainWindow::updateVariableTreeItem(int index, QTreeWidgetItem* item) {
     item->setText(0, displayText);
 }
 
+/**
+ * Handles changes to input values in the monitoring table.
+ * 
+ * When a user edits an input value in runtime monitoring mode,
+ * sends the new value to the FSM interpreter via the RuntimeClient.
+ */
 void MainWindow::handleInputCellChanged(int row, int column)
 {
     if (column != 1) return;           // only the value column
@@ -448,21 +487,26 @@ void MainWindow::handleInputCellChanged(int row, int column)
 
     // send as an inject
     if (m_runtime) {
-        nlohmann::json j = {
-            {"type",  "inject"},
-            {"name",  name.toStdString()},
-            {"value", value.toStdString()}
-        };
+        nlohmann::json j = { {"type",  "inject"}, {"name",  name.toStdString()}, {"value", value.toStdString()} };
         m_runtime->sendCustomMessage(j.dump());
         
+        emit m_runtime->logMessage(
+            QString("INPUT %1 = %2").arg(name, value)
+        );
         // Update our local snapshot to reflect the change immediately
         m_lastSnapshot.inputs[name] = value;
     }
 }
 
-/* ------------------------------------------------------------------
- *  A user edited the “Variables” table
- * ----------------------------------------------------------------*/
+/**
+ * Handles changes to variable values in the monitoring table.
+ * 
+ * When a user edits a variable value during runtime monitoring,
+ * sends the new value to the FSM interpreter via the RuntimeClient.
+ * Distinguishes between variables and inputs to use the appropriate
+ * message type.
+ * 
+ */
 void MainWindow::handleVariableCellChanged(int row, int column)
 {
     if (column != 1) return;          // only the value column matters

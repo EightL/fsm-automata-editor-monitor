@@ -1,14 +1,29 @@
-// transition.cpp (with lazy QJSEngine)
+/**
+ * @file   transition.cpp
+ * @brief  Implements the Transition class for FSM state transitions,
+ *         with support for input triggers, JS guards, and delay mechanisms.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include "transition.hpp"
 #include <stdexcept>
 #include <variant>
 
 namespace core_fsm {
 
-//------------------------------------------------------------------------------
-// Lazy-initialized QJSEngine with helper functions
-//------------------------------------------------------------------------------
-namespace {
+
+    namespace {
+    // -- JS Engine Singleton ------------------------------------------------
+    
+    /**
+     * Returns a singleton QJSEngine instance with predefined helper functions.
+     * Sets up JS utility functions that are available in all guard expressions:
+     * - valueof(name): Gets value from inputs or vars (inputs take precedence)
+     * - defined(name): Checks if name exists in inputs or vars
+     * - atoi(s): Converts string to integer (parseInt wrapper)
+     */
     QJSEngine& engine() {
         static bool initialized = false;
         static QJSEngine e;
@@ -47,9 +62,12 @@ namespace {
     }
 }
 
-//------------------------------------------------------------------------------
-// Transition implementation
-//------------------------------------------------------------------------------
+// -- Transition implementations -------------------------------------------
+
+/**
+ * Construct a transition with a fixed numeric delay.
+ * Compiles the guard expression into a callable JS function if provided.
+ */
 Transition::Transition(std::string inputName,
                        std::string guardExpr,
                        std::chrono::milliseconds delay,
@@ -73,7 +91,10 @@ Transition::Transition(std::string inputName,
     }
 }
 
-// NEW constructor for variable delays
+/**
+ * Construct a transition with a variable-based delay.
+ * Compiles the guard expression into a callable JS function if provided.
+ */
 Transition::Transition(std::string inputName,
                        std::string guardExpr,
                        std::string delayVarName,
@@ -94,6 +115,11 @@ Transition::Transition(std::string inputName,
     }
 }
 
+/**
+ * Determines if this transition should fire based on input and guard condition.
+ * First checks if input name matches, then evaluates the guard expression
+ * with the current context if a guard exists.
+ */
 bool Transition::isTriggered(const std::string& incomingInput,
                              const GuardCtx&    ctx) const
 {
@@ -107,7 +133,7 @@ bool Transition::isTriggered(const std::string& incomingInput,
     QJSEngine& eng = engine();
     QJSValue jsCtx = eng.newObject();
 
-    // inputs
+    // Populate ctx.inputs with string values
     QJSValue jsInputs = eng.newObject();
     for (auto const& kv : ctx.inputs) {
         jsInputs.setProperty(
@@ -117,7 +143,7 @@ bool Transition::isTriggered(const std::string& incomingInput,
     }
     jsCtx.setProperty("inputs", jsInputs);
 
-    // vars
+    // Populate ctx.vars with type-appropriate values
     QJSValue jsVars = eng.newObject();
     for (auto const& kv : ctx.vars) {
         QJSValue v;
@@ -134,10 +160,10 @@ bool Transition::isTriggered(const std::string& incomingInput,
     }
     jsCtx.setProperty("vars", jsVars);
 
-    // Expose ctx for helper functions
+    // Make context accessible to helper functions
     eng.globalObject().setProperty("ctx", jsCtx);
 
-    // Invoke the guard function
+    // Evaluate guard function and handle errors
     QJSValue fn = guardFn_;
     QJSValue result = fn.call();
     if (result.isError()) {

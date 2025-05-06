@@ -1,0 +1,24 @@
+{
+    "name": "test1",
+    "comment": "this is test automata",
+    "inputs": [
+        "in"
+    ],
+    "outputs": [
+        "out"
+    ],
+    "variables": [
+        {
+            "name": "timeout",
+            "type": "int",
+            "init": 2000
+        }
+    ],
+    "states": [
+        {
+            "id": "2",
+            "initial": true
+        }
+    ],
+    "transitions": []
+}

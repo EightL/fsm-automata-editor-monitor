@@ -1,3 +1,12 @@
+/**
+ * @file   file.cpp
+ * @brief  Implements file operations for the FSM editor including new, open,
+ *         save, and save-as functionality, plus project tree management.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDateTime>
@@ -5,6 +14,12 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
+/**
+ * Creates a new empty FSM document and resets the UI.
+ * 
+ * Clears the current document, warning messages, and visualizations,
+ * then initializes a new document with default values.
+ */
 void MainWindow::on_actionNew_triggered()
 {
     // Clear any warnings when creating a new FSM
@@ -15,7 +30,7 @@ void MainWindow::on_actionNew_triggered()
     m_doc = core_fsm::persistence::FsmDocument{};   // fresh, empty document
     m_doc.name = "untitled";                        // a harmless default
 
-    // 2) forget the path so the next Ctrl‑S falls back to Save As… /
+    // 2) forget the path so the next Ctrl‑S falls back to Save As… /
     m_currentFsmPath.clear();
 
     // 3) refresh every view ----------------------------------------/
@@ -24,7 +39,12 @@ void MainWindow::on_actionNew_triggered()
     ui->labelCurrentState->setText(tr("Current State: -"));
 }
 
-// ————— File → Open —————
+/**
+ * Opens an existing FSM document from a user-selected file.
+ * 
+ * Displays a file dialog, loads the selected file, and handles any parsing errors.
+ * Updates the UI with the loaded FSM contents and displays any warning messages.
+ */
 void MainWindow::on_actionOpen_triggered() {
     // 1) ask for file
     QString path = QFileDialog::getOpenFileName(
@@ -44,7 +64,7 @@ void MainWindow::on_actionOpen_triggered() {
     std::string err;
     bool ok = core_fsm::persistence::loadFile(path.toStdString(), doc, &err);
 
-    // 4) if loadFile() said “hard error”, show only bar and bail
+    // 4) if loadFile() said "hard error", show only bar and bail
     if (!ok) {
         m_warningBar->setText(QString::fromStdString(err));
         m_warningBar->setVisible(true);
@@ -71,7 +91,12 @@ void MainWindow::on_actionOpen_triggered() {
     }
 }
 
-// ————— File → Save —————
+/**
+ * Saves the current FSM document to its existing filepath.
+ * 
+ * If no filepath is currently set, delegates to on_actionSaveAs_triggered().
+ * Handles save errors and displays appropriate error messages.
+ */
 void MainWindow::on_actionSave_triggered() {
     // Clear any previous warnings
     m_warningBar->clear();
@@ -97,7 +122,12 @@ void MainWindow::on_actionSave_triggered() {
     }
 }
 
-// ————— File → Save As… —————
+/**
+ * Saves the current FSM document to a user-selected filepath.
+ * 
+ * Displays a file dialog for selecting the save location, then
+ * delegates to on_actionSave_triggered() to perform the actual save.
+ */
 void MainWindow::on_actionSaveAs_triggered() {
     QString path = QFileDialog::getSaveFileName(
         this,
@@ -111,7 +141,13 @@ void MainWindow::on_actionSaveAs_triggered() {
     on_actionSave_triggered();
 }
 
-// ————— rebuild the left-hand tree —————
+/**
+ * Rebuilds the project tree with the current FSM document structure.
+ * 
+ * Clears the existing tree and creates categories for all FSM elements:
+ * Project info, inputs, outputs, variables, states, and transitions.
+ * Formats each item with descriptive text based on its properties.
+ */
 void MainWindow::populateProjectTree() {
     ui->projectTree->clear();
 
@@ -182,18 +218,32 @@ void MainWindow::populateProjectTree() {
     ui->projectTree->expandAll();
 }
 
+/**
+ * Formats the project name for display in the project tree.
+ *
+ * @return Formatted string with project name label and value
+ */
 QString MainWindow::getNameDisplayText() const {
     return tr("Name: %1").arg(QString::fromStdString(m_doc.name.empty() ? "Untitled" : m_doc.name));
 }
 
+/**
+ * Formats the project comment for display in the project tree.
+ */
 QString MainWindow::getCommentDisplayText() const {
     return tr("Comment: %1").arg(QString::fromStdString(m_doc.comment.empty() ? "-" : m_doc.comment));
 }
 
+/**
+ * Updates the display text for the name item in the project tree.
+ */
 void MainWindow::updateNameTreeItem(QTreeWidgetItem* item) {
     item->setText(0, getNameDisplayText());
 }
 
+/**
+ * Updates the display text for the comment item in the project tree.
+ */
 void MainWindow::updateCommentTreeItem(QTreeWidgetItem* item) {
     item->setText(0, getCommentDisplayText());
 }

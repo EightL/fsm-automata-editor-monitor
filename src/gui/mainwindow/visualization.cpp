@@ -1,3 +1,13 @@
+/**
+ * @file   visualization.cpp
+ * @brief  Implements the visualization functionality for the FSM editor.
+ *         Provides methods for rendering states and transitions in the graphics view,
+ *         handling layout algorithms, and updating visual elements when the model changes.
+ *
+ * @author Martin Ševčík (xsevcim00)
+ * @author Jakub Lůčný (xlucnyj00)
+ * @date   2025-05-06
+ */
 #include <QApplication>
 #include <QDebug>
 #include <QtMath>
@@ -7,6 +17,14 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
+/**
+ * Creates or updates the visual representation of the FSM in the graphics scene.
+ * 
+ * Builds state and transition graphics items from the current document model,
+ * preserving existing item positions when possible. Handles special cases for
+ * transitions (multiple between same states) and ensures proper layout of newly
+ * added states.
+ */
 void MainWindow::visualizeFsm()
 {
     // Store existing state positions before clearing
@@ -98,6 +116,13 @@ void MainWindow::visualizeFsm()
     m_scene->setSceneRect(m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50));
 }
 
+/**
+ * Removes all visual elements from the FSM graphics scene.
+ * 
+ * Carefully deletes transitions first, then states, and finally any
+ * remaining scene items. Processes events between steps to ensure proper
+ * cleanup and prevent dangling references between items.
+ */
 void MainWindow::clearFsmVisualization()
 {
     // First, remove all transitions from the scene
@@ -125,7 +150,13 @@ void MainWindow::clearFsmVisualization()
     m_scene->clear();
 }
 
-// Add this new method to position only new states
+/**
+ * Positions newly added states in the scene relative to existing states.
+ * 
+ * If existing states are present, arranges new states around the perimeter
+ * of existing ones. If all states are new, arranges them in a circle.
+ * 
+ */
 void MainWindow::layoutNewStateElements(const QSet<QString>& newStateIds)
 {
     if (newStateIds.isEmpty()) return;
@@ -216,7 +247,14 @@ void MainWindow::layoutNewStateElements(const QSet<QString>& newStateIds)
     }
 }
 
-// Add this method for updating state visuals
+/**
+ * Updates the visualization when a state's properties have changed.
+ * 
+ * Since state ID changes require updating all connected transitions,
+ * this method triggers a complete rebuild of the visualization to ensure
+ * proper connections are maintained.
+ *
+ */
 void MainWindow::updateStateVisual(int stateIndex) {
     const auto& state = m_doc.states[stateIndex];
     std::string stateId = state.id;
@@ -226,7 +264,13 @@ void MainWindow::updateStateVisual(int stateIndex) {
     visualizeFsm();
 }
 
-// Add this method to update transition visuals
+/**
+ * Updates the visualization when a transition's properties have changed.
+ * 
+ * For endpoint changes (from/to states), performs a complete rebuild.
+ * For property changes only (trigger, guard, delay), updates the existing
+ * transition item without rebuilding the whole visualization.
+ */
 void MainWindow::updateTransitionVisual(int transitionIndex) {
     const auto& transition = m_doc.transitions[transitionIndex];
     const std::string fromId = transition.from;
