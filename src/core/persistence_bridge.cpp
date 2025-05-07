@@ -76,14 +76,6 @@
          auto trig  = t.value("trigger", std::string{});
          auto guard = t.value("guard",   std::string{});
  
-         if (!guard.empty() && trig.empty()) {
-             warning = "Transition `" +
-                       t["from"].get<std::string>() + "`→`" +
-                       t["to"].get<std::string>() +
-                       "` has a guard but no trigger.";
-             break;
-         }
- 
          if (!trig.empty() && !is_input(trig)) {
              warning = "Unknown trigger `" + trig +
                        "` in transition `" +

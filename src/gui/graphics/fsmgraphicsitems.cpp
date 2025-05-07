@@ -433,7 +433,7 @@ void TransitionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
     
     // Find the widest line and calculate total height
     for (const QString& line : lines) {
-        textWidth = qMax(textWidth, fm.horizontalAdvance(line));
+        textWidth = qMax(textWidth, fm.width(line));
         textHeight += fm.height();
     }
     
@@ -525,7 +525,7 @@ QPainterPath TransitionItem::shape() const
     int textHeight = 0;
     
     for (const QString& line : lines) {
-        textWidth = qMax(textWidth, fm.horizontalAdvance(line));
+        textWidth = qMax(textWidth, fm.width(line));
         textHeight += fm.height();
     }
     
