@@ -13,7 +13,6 @@
 
 namespace core_fsm {
 
-
     namespace {
     // -- JS Engine Singleton ------------------------------------------------
     
