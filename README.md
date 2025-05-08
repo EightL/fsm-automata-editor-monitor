@@ -8,13 +8,13 @@
 
 Tento nástroj kombinuje editor stavových diagramů (FSM Editor) a živý monitor běžícího interpretu.
 
-| Oblast                | Funkcionalita                                                                                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Modelování**        | interaktivní přidávání stavů, přechodů, proměnných, vstupů a výstupů; okamžité ověření sémantických chyb; vizuální layout se samodoplňováním pozic                  |
-| **Akce & Stráže**     | zápis výrazů v podmnožině JavaScriptu (díky `QJSEngine`) – k dispozici jsou helpery `defined()`, `valueof()`, `atoi()` a `elapsed()`                                |
-| **Zpožděné přechody** | pevné (`@ 5000`) i proměnné (`@ timeout`) zpoždění; plánování zajišťuje interní `Scheduler`                                                                         |
-| **Generování & běh**  | jedním tlačítkem *Build & Run* se vygeneruje JSON, spustí CLI interpret (`fsm_runtime`) a GUI se k němu připojí přes UDP                                            |
-| **Live monitoring**   | zvýraznění aktuálního stavu, tabulky posledních hodnot vstupů/ proměnných/ výstupů, log změn, možnost asynchronně „injektovat“ nové vstupy nebo nastavovat proměnné |
+| Oblast                | Funkcionalita       |
+| --------------------- | ----------------------------------------------------------------------- |
+| **Modelování**        | interaktivní přidávání/editování/mazání stavů, přechodů, proměnných, vstupů a výstupů;  vizuální reprezentace definovaného automatu;  interkce s vizuálním modelem|
+| **Akce & Stráže**     | zápis výrazů v podmnožině JavaScriptu (díky `QJSEngine`) - obohacené o další pomocné funkce `defined()`, `valueof()`, `atoi()` a `elapsed()` |
+| **Zpožděné přechody** | pevné (`@ 5000`) i proměnné (`@ timeout`) zpoždění; plánování zajišťuje interní `Scheduler` |
+| **Generování & běh**  | jedním tlačítkem *Build & Run* se vygeneruje JSON, spustí CLI interpret (`fsm_runtime`) a GUI se k němu připojí přes UDP |
+| **Live monitoring**   | zvýraznění aktuálního stavu, tabulky posledních hodnot vstupů/ proměnných/ výstupů, log změn, možnost asynchronně „injektovat“ nové vstupy za běhu |
 
 
 
@@ -138,6 +138,6 @@ $ make doxygen    # volitelné – HTML dokumentace do ./doc/
 $ make run        # ekvivalent otevření ui_qt/bin/icp_fsm_editor
 ```
 
-*V GUI* klikni **New →** nakresli automat → **Build & Run**.  Editor uloží temporární JSON, spustí `fsm_runtime`, otevře UDP kanál a začne vizualizovat live stav.
+*V GUI* klikni **New →** nakresli automat → **Build & Run**.  Editor uloží dočasný JSON, spustí `fsm_runtime`, otevře UDP kanál a začne vizualizovat průběh interpretace a současný stav.
 
 
