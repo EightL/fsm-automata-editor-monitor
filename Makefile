@@ -15,7 +15,7 @@
 BUILD_DIR   ?= build
 BIN_DIR     := $(BUILD_DIR)/bin
 DOC_DIR     := doc
-PACK_NAME   ?= submission            # override on cmd-line if desired
+PACK_NAME   ?= xsevcim00-xlucnyj00
 CMAKE       ?= cmake
 BUILD_TYPE  ?= Release               # switch to Debug with:  make BUILD_TYPE=Debug
 JOBS        ?= $(shell nproc)        # parallelism for the native make inside CMake
@@ -28,7 +28,7 @@ CMAKE_PREFIX_PATH ?= /usr/local/share/Qt-5.9.2/5.9.2/gcc_64
 QT_QPA_PLATFORM_PLUGIN_PATH ?= $(CMAKE_PREFIX_PATH)/plugins/platforms
 # ————————————————————————————————————————————————————————————————
 
-.PHONY: all build clean run doxygen pack
+.PHONY: all clean doxygen pack
 all: build
 
 # ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ doxygen:
 # ---------------------------------------------------------------------------
 clean:
 	@echo "\n==[ Clean ]==========================================================="
-	rm -rf $(BUILD_DIR) $(DOC_DIR)/html
+	rm -rf $(BUILD_DIR) $(DOC_DIR)/html $(PACK_NAME).zip doxygen_warnings.log
 
 # ---------------------------------------------------------------------------
 #  Pack everything for IS submission
@@ -72,5 +72,5 @@ clean:
 pack: clean
 	@echo "\n==[ Creating submission archive ]===================================="
 	zip -qr $(PACK_NAME).zip \
-		. -x "$(BUILD_DIR)/*" "$(DOC_DIR)/html/*" "*.zip" "*.tar.gz"
-	@echo "Wrote $(PACK_NAME).zip  - remember to rename to xsevcim00-xlucnyj00.zip"
+		. -x "$(BUILD_DIR)/*" "$(DOC_DIR)/html/*" "*.zip" "*.tar.gz" "./.*"
+	@echo "Wrote $(PACK_NAME).zip"
