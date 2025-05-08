@@ -1,6 +1,6 @@
 {
-    "name": "untitled",
-    "comment": "",
+    "name": "Simple_fsm",
+    "comment": "Tests transitions, where there are multiple transitions from a single state each triggered by different input and/or value.",
     "inputs": [
         "in1",
         "in2",
@@ -13,18 +13,13 @@
     "variables": [
         {
             "name": "time",
-            "type": "",
+            "type": "int",
             "init": 3000
         },
         {
-            "name": "temp",
-            "type": "",
-            "init": 51
-        },
-        {
             "name": "mode",
-            "type": "",
-            "init": 1
+            "type": "string",
+            "init": "automatic"
         }
     ],
     "states": [
@@ -89,7 +84,7 @@
             "from": "1",
             "to": "4",
             "trigger": "in1",
-            "guard": "parseInt(valueof(\"in1\"),10) == 1 \r\n  && valueof(\"mode\") == \"automatic\"",
+            "guard": "atoi(valueof(\"in1\")) == 10 && valueof(\"mode\") == \"automatic\"",
             "delay_ms": 0
         }
     ]

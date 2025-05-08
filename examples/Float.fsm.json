@@ -1,6 +1,6 @@
 {
     "name": "Float sum",
-    "comment": "Keeps increasing value of \"f\" float variable each second until it reaches value over 20",
+    "comment": "Keeps increasing value of \"f\" float variable each second until it reaches value over 20.\nActivated with 1 in 'input'.",
     "inputs": [
         "in"
     ],

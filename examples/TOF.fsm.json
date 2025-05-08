@@ -14,22 +14,22 @@
         {
             "name": "timeout",
             "type": "int",
-            "init": 500
+            "init": 5000
         }
     ],
     "states": [
         {
             "id": "IDLE",
             "initial": true,
-            "onEnter": "timeout = 3000"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\")); \n} \noutput(\"out\", 0);\noutput(\"rt\", 0);"
         },
         {
             "id": "ACTIVE",
-            "onEnter": "timeout = 3000"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\"));\n}\noutput(\"out\", 1);\noutput(\"rt\", timeout);"
         },
         {
             "id": "TIMING",
-            "onEnter": "timeout = 3000"
+            "onEnter": "if (defined(\"set_to\")) {\n    timeout = atoi(valueof(\"set_to\"));\n}\noutput(\"rt\", timeout - elapsed());"
         }
     ],
     "transitions": [
@@ -37,19 +37,19 @@
             "from": "IDLE",
             "to": "ACTIVE",
             "trigger": "in",
-            "guard": "atoi(valueof(\"in\"))==1"
+            "guard": "atoi(valueof(\"in\")) == 1 "
         },
         {
             "from": "ACTIVE",
             "to": "TIMING",
             "trigger": "in",
-            "guard": "atoi(valueof(\"in\"))==0"
+            "guard": "atoi(valueof(\"in\")) == 0"
         },
         {
             "from": "TIMING",
             "to": "ACTIVE",
             "trigger": "in",
-            "guard": "atoi(valueof(\"in\"))==1"
+            "guard": "atoi(valueof(\"in\")) == 1"
         },
         {
             "from": "TIMING",
@@ -85,16 +85,6 @@
             "from": "TIMING",
             "to": "TIMING",
             "trigger": "req_rt"
-        },
-        {
-            "from": "IDLE",
-            "to": "ACTIVE",
-            "delay_ms": "timeout"
-        },
-        {
-            "from": "ACTIVE",
-            "to": "ACTIVE",
-            "delay_ms": "timeout"
         }
     ]
 }
