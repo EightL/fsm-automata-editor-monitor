@@ -15,7 +15,7 @@
 BUILD_DIR   ?= build
 BIN_DIR     := $(BUILD_DIR)/bin
 DOC_DIR     := doc
-PACK_NAME   ?= xsevcim00-xlucnyj00
+PACK_NAME   ?= xlucnyj00-xsevcim00
 CMAKE       ?= cmake
 BUILD_TYPE  ?= Release               # switch to Debug with:  make BUILD_TYPE=Debug
 JOBS        ?= $(shell nproc)        # parallelism for the native make inside CMake
